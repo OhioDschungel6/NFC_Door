@@ -1,0 +1,3 @@
+[submodule "Arduino-CMake-Toolchain"]
+	path = Arduino-CMake-Toolchain
+	url = ./Arduino-CMake-Toolchain

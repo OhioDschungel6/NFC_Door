@@ -2,7 +2,7 @@
 #include <DNSServer.h>
 #include <WiFiManager.h> //https://github.com/tzapu/WiFiManager
 char wifiManagerAPName[] = "NFCReader";
-char wifiManagerAPPassword[] = "HariFunk";
+char wifiManagerAPPassword[] = "OhioDschungel6";
 
 
 //== DOUBLE-RESET DETECTOR ==

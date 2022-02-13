@@ -2,8 +2,11 @@
 #include "NetworkClient.h"
 
 //String host = "192.168.178.22";
-IPAddress host(192,168,178,22);
+//IPAddress host(192,168,178,22);
+IPAddress host(192,168,179,85);
 unsigned int port = 80;
+
+void dumpInfo(byte *ar, int len);
 
 NetworkClient::NetworkClient()
 {
@@ -18,7 +21,8 @@ NetworkClient::NetworkClient()
 
 void NetworkClient::Send(byte message[],int size)
 {
-  Serial.println("Sending message");
+  Serial.println("Sending message:");
+    dumpInfo(message,size);
   client.write((char*)message,size);
   client.flush();
 }

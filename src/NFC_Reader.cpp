@@ -51,6 +51,7 @@ void loop() {
             return;
         } else {
             isPresent = true;
+            Serial.println(mfrc522.uid.sak);
             if (mfrc522.uid.sak == 0x00) {
                 dumpInfo(mfrc522.uid.uidByte, mfrc522.uid.size);
                 RequestAuthUltralightCNetwork();
@@ -81,6 +82,8 @@ void loop() {
 
 
 void RequestAuthUltralightCNetwork() {
+
+    Serial.println("Ultralight Auth");
 
     NetworkClient client;
     byte AuthBuffer[24] = {0};            //

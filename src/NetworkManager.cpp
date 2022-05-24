@@ -132,4 +132,5 @@ void NetworkManager::Setup()
   }
   drd.stop();
 
+  delay(1000);
 }

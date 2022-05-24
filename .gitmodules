@@ -1,3 +1,4 @@
 [submodule "Arduino-CMake-Toolchain"]
 	path = Arduino-CMake-Toolchain
-	url = ./Arduino-CMake-Toolchain
+	url = https://github.com/michal-kowalczyk/Arduino-CMake-Toolchain.git
+	branch = fix/resolve-property-as-long-as-possible

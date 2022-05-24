@@ -2,10 +2,11 @@
 #include <Arduino.h>
 #include "NFC_Reader.h"
 #include <SPI.h>
-#include <MFRC522v2.h>
-#include <MFRC522DriverPinSimple.h>
-#include <MFRC522DriverSPI.h>
-#include <MFRC522Debug.h>
+//#include <MFRC522v2.h>
+//#include <MFRC522DriverPinSimple.h>
+//#include <MFRC522DriverSPI.h>
+//#include <MFRC522Debug.h>
+#include <MFRC522Extended.h>
 
 #define RST_PIN          21         // Configurable, see typical pin layout above
 #define SS_PIN           5         // Configurable, see typical pin layout above
@@ -18,9 +19,9 @@ NetworkManager networkManager;
 
 #include "NetworkClient.h"
 
-MFRC522DriverPinSimple ss_pin(SS_PIN); // Configurable, see typical pin layout above.
-MFRC522DriverSPI driver{ss_pin}; // Create SPI driver.
-MFRC522 mfrc522(driver);  // Create MFRC522 instance
+//MFRC522DriverPinSimple ss_pin(SS_PIN); // Configurable, see typical pin layout above.
+//MFRC522DriverSPI driver{ss_pin}; // Create SPI driver.
+MFRC522Extended mfrc522(SS_PIN, RST_PIN);  // Create MFRC522 instance
 MFRC522::StatusCode status;
 
 boolean isPresent = false;
@@ -33,7 +34,7 @@ void setup() {
     networkManager.Setup();
     SPI.begin();                                        // Init SPI bus
     mfrc522.PCD_Init();                                 // Init MFRC522
-    MFRC522Debug::PCD_DumpVersionToSerial(mfrc522, Serial);
+//    MFRC522Debug::PCD_DumpVersionToSerial(mfrc522, Serial);
     Serial.println(F("Setup ready"));
 }
 
@@ -67,7 +68,7 @@ void loop() {
     if (isPresent) {                            // test read - it it fails, the PICC is most likely gone
         byte byteCount = sizeof(buffer);
         status = mfrc522.MIFARE_Read(0, buffer, &byteCount);
-        if (status != MFRC522Constants::STATUS_OK) {
+        if (status != MFRC522::STATUS_OK) {
             isPresent = false;
             mfrc522.PCD_StopCrypto1();
             Serial.println("Card gone...");
@@ -98,7 +99,7 @@ void RequestAuthUltralightCNetwork() {
 
     // Calculate CRC_A
     status = mfrc522.PCD_CalculateCRC(AuthBuffer, 2, &AuthBuffer[2]);
-    if (status != MFRC522Constants::STATUS_OK) {
+    if (status != MFRC522::STATUS_OK) {
         return;
     }
 
@@ -107,9 +108,9 @@ void RequestAuthUltralightCNetwork() {
     // Transmit the buffer and receive the response, validate CRC_A.
     //Step - 2
     status = mfrc522.PCD_TransceiveData(AuthBuffer, 4, AuthBuffer, &AuthLength, nullptr, 0, true);
-    if (status != MFRC522Constants::STATUS_OK) {
+    if (status != MFRC522::STATUS_OK) {
         Serial.println("Ultralight C Auth failed");
-        Serial.println(MFRC522Debug::GetStatusCodeName(status));
+        Serial.println(MFRC522::GetStatusCodeName(status));
         Serial.print(F("Reply: "));
         dumpInfo(AuthBuffer, AuthLength);
         return;
@@ -123,14 +124,14 @@ void RequestAuthUltralightCNetwork() {
     AuthBuffer[0] = 0xAF;
     memcpy(AuthBuffer + 1, message, 16); // copy the enc(RndB) from the message
     status = mfrc522.PCD_CalculateCRC(AuthBuffer, 17, &AuthBuffer[17]);
-    if (status != MFRC522Constants::STATUS_OK) {
+    if (status != MFRC522::STATUS_OK) {
         return;
     }
     //Step - 4
     status = mfrc522.PCD_TransceiveData(AuthBuffer, 19, AuthBuffer, &AuthLength, nullptr, 0, true);
-    if (status != MFRC522Constants::STATUS_OK) {
+    if (status != MFRC522::STATUS_OK) {
         Serial.print(F("Auth failed failed: "));
-        Serial.println(MFRC522Debug::GetStatusCodeName(status));
+        Serial.println(MFRC522::GetStatusCodeName(status));
         Serial.println(F("Reply: "));
         dumpInfo(AuthBuffer, AuthLength);
         return;
@@ -148,9 +149,9 @@ void RequestAuthUltralightCNetwork() {
 void RequestAuthDesfireNetwork() {
 
     NetworkClient client;
-    byte AuthBuffer[64] = {0}; //
-    byte AuthLength = 64;
-    byte message[64] = {0}; // Message to transfer
+    byte AuthBuffer[128] = {0}; //
+    byte AuthLength = 128;
+    byte message[128] = {0}; // Message to transfer
     byte byteCount = sizeof(buffer);
 
     //#Step 0: Get and send id
@@ -158,16 +159,20 @@ void RequestAuthDesfireNetwork() {
     //Start Authentification
     //Step - 1
     // Build command buffer
-    AuthBuffer[0] = 0x00; //
+    AuthBuffer[0] = 0xAA; //
 
     AuthLength = sizeof(AuthBuffer);
 
     // Transmit the buffer and receive the response, validate CRC_A.
     //Step - 2
-    status = mfrc522.PCD_TransceiveData14443_4(MFRC522Constants::DESFIRE_Auth,AuthBuffer,2, AuthBuffer, &AuthLength);
-    if (status != MFRC522Constants::STATUS_OK) {
-        Serial.println("Ultralight C Auth failed");
-        Serial.println(MFRC522Debug::GetStatusCodeName(status));
+
+    MFRC522::Uid uid;
+    mfrc522.PICC_Select(&uid, 0);
+    mfrc522.TCL_Transceive(&mfrc522.tag,AuthBuffer,2,AuthBuffer,&AuthLength);
+//    status = mfrc522.PCD_TransceiveData14443_4(MFRC522Constants::DESFIRE_Auth,AuthBuffer,2, AuthBuffer, &AuthLength);
+    if (status != MFRC522::STATUS_OK) {
+        Serial.println("Desfire Auth failed");
+        Serial.println(MFRC522::GetStatusCodeName(status));
         Serial.print(F("Reply: "));
         dumpInfo(AuthBuffer, AuthLength);
         return;
@@ -182,14 +187,14 @@ void RequestAuthDesfireNetwork() {
     AuthBuffer[0] = 0xAF;
     memcpy(AuthBuffer + 1, message, 32); // copy the enc(RndB) from the message
     status = mfrc522.PCD_CalculateCRC(AuthBuffer, 17, &AuthBuffer[33]);
-    if (status != MFRC522Constants::STATUS_OK) {
+    if (status != MFRC522::STATUS_OK) {
         return;
     }
     //Step - 4
     status = mfrc522.PCD_TransceiveData(AuthBuffer, 19, AuthBuffer, &AuthLength, nullptr, 0, true);
-    if (status != MFRC522Constants::STATUS_OK) {
+    if (status != MFRC522::STATUS_OK) {
         Serial.print(F("Auth failed failed: "));
-        Serial.println(MFRC522Debug::GetStatusCodeName(status));
+        Serial.println(mfrc522.GetStatusCodeName(status));
         Serial.println(F("Reply: "));
         dumpInfo(AuthBuffer, AuthLength);
         return;

@@ -131,6 +131,5 @@ void NetworkManager::Setup()
     saveConfig();
   }
   drd.stop();
-  
-  delay(3000);
+
 }

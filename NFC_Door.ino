@@ -1,6 +1,6 @@
 
 #include <Arduino.h>
-#include "NFC_Reader.h"
+//#include "NFC_Reader.h"
 #include <SPI.h>
 //#include <MFRC522v2.h>
 //#include <MFRC522DriverPinSimple.h>
@@ -91,6 +91,8 @@ void RequestAuthUltralightCNetwork() {
     byte message[24] = {0};             // Message to transfer
     byte byteCount = sizeof(buffer);
 
+    byte deviceCode[1] = {0};
+    client.Send(deviceCode,1);
 
     //#Step 0: Get and send id
     client.Send(mfrc522.uid.uidByte, 7);
@@ -156,6 +158,9 @@ void RequestAuthDesfireNetwork() {
     byte AuthLength = 128;
     byte message[128] = {0}; // Message to transfer
     byte byteCount = sizeof(buffer);
+
+    byte deviceCode[1] = {1};
+    client.Send(deviceCode,1);
 
     //#Step 0: Get and send id
     client.Send(mfrc522.uid.uidByte, 7);

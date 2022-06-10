@@ -15,6 +15,11 @@ uint32_t parseAppId(const byte* buffer) {
 }
 
 template <size_t N>
+void Buffer<N>::clear() {
+    memset(buffer, 0, N);
+    size = 0;
+}
+template <size_t N>
 boolean Buffer<N>::append(byte b) {
     CHECK_SIZE(1)
     buffer[size] = b;
@@ -46,4 +51,18 @@ boolean Buffer<N>::append32(uint32_t value) {
     buffer[size + 3] = (value >> 24) & 0xff;
     size += 4;
     return true;
+}
+template <size_t N>
+boolean Buffer<N>::pad(size_t n) {
+    CHECK_SIZE(n)
+    size += n;
+    return true;
+}
+template <size_t N>
+boolean Buffer<N>::replace(size_t start, const byte* buffer, size_t n) {
+    if (start + n >= N) {
+        return false;
+    }
+    memcpy(&this->buffer[start], buffer, n);
+    return false;
 }

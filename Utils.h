@@ -3,7 +3,7 @@
 
 void dumpInfo(byte*, int);
 
-uint32_t parseAppId(byte* buffer);
+uint32_t parseAppId(const byte* buffer);
 
 #define CHECK_SIZE(s) \
     if (size + s - 1 >= N) return false;

@@ -1,6 +1,6 @@
 #include "Utils.h"
 
-void dumpInfo(byte *ar, int len) {
+void dumpInfo(byte* ar, int len) {
     for (int i = 0; i < len; i++) {
         if (ar[i] < 0x10)
             Serial.print(F("0"));
@@ -8,4 +8,8 @@ void dumpInfo(byte *ar, int len) {
         Serial.print(F(" "));
     }
     Serial.println("");
+}
+
+uint32_t parseAppId(byte* buffer) {
+    return buffer[0] | buffer[1] << 8 | buffer[2] << 6;
 }

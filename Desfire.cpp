@@ -296,10 +296,8 @@ int Desfire::GetAppIds(uint32_t appIds[], int maxLength) {
         return ids;
     }
     dumpInfo(message, messageLength);
-    messageLength = (messageLength - 1) / 3;
-    byte* p = message + 1;
-    for (int i = 0; i < messageLength; i++) {
-        appIds[ids++] = p[i * 3] << 16 | p[i * 3 + 1] << 8 | p[i * 3 + 2];
+    for (int i = 1; i <= messageLength - 3; i += 3) {
+        appIds[ids++] = parseAppId(&p[i]);
         if (ids == maxLength) {
             return ids;
         }
@@ -317,10 +315,8 @@ int Desfire::GetAppIds(uint32_t appIds[], int maxLength) {
             dumpInfo(message, messageLength);
             return ids;
         }
-        messageLength = (messageLength - 1) / 3;
-        byte* p = message + 1;
-        for (int i = 0; i < messageLength; i++) {
-            appIds[ids++] = p[i * 3] << 16 | p[i * 3 + 1] << 8 | p[i * 3 + 2];
+        for (int i = 1; i <= messageLength - 3; i += 3) {
+            appIds[ids++] = parseAppId(&p[i]);
             if (ids == maxLength) {
                 return ids;
             }

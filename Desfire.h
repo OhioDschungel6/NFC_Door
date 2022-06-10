@@ -28,7 +28,7 @@ class Desfire {
     AES32 aes = AES32();
     boolean EncryptDataframe(byte dataframe[], byte encDataframe[], int length);
 };
-enum KeyTypes {
+enum KeyType : byte {
     KEYTYPE_2K3DES = 0x00,
     KEYTYPE_3DES = 0x40,
     KEYTYPE_AES = 0x80,

@@ -28,18 +28,9 @@ boolean Desfire::AuthenticateNetwork(int keytype, int keyNr) {
     byte AuthLength = 64;
     byte message[64] = {0};  // Message to transfer
 
-    byte authMode[1] = {0};
-    byte blockSize;
-    if (keytype == KEYTYPE_2K3DES) {
-        authMode[0] = 0;
-        blockSize = 8;
-    } else if (keytype == KEYTYPE_3DES) {
-        authMode[0] = 1;
-        blockSize = 16;
-    } else if (keytype == KEYTYPE_AES) {
-        authMode[0] = 2;
-        blockSize = 16;
-    }
+    byte authMode[1] = getAuthMode(keytype);
+    byte blockSize = getAuthBlockSize(keytype);
+
     // Notify server if 3DES or AES
     client.Send(authMode, 1);
 
@@ -255,16 +246,10 @@ boolean Desfire::ChangeKey(byte key[], int keytype, int keyNr) {
         messageLength += 4;
     }
     // TODO only for applicationKeys atm
-    if (AuthType == KEYTYPE_AES) {
-        if ((messageLength - 2) % 16 != 0) {
-            // setSize to next multiple of 16;
-            messageLength += 16 - ((messageLength - 2) % 16);
-        }
-    } else if (AuthType == KEYTYPE_3DES || AuthType == KEYTYPE_2K3DES) {
-        if ((messageLength - 2) % 8 != 0) {
-            // setSize to next multiple of 8;
-            messageLength += 8 - ((messageLength - 2) % 8);
-        }
+    int blockSize = getBlockSize(AuthType);
+    if ((messageLength - 2) % blockSize != 0) {
+        // setSize to next multiple of block size
+        messageLength += blockSize - ((messageLength - 2) % blockSize);
     }
     // Encrypt
     byte encDataframe[messageLength] = {0};
@@ -349,27 +334,23 @@ boolean Desfire::EncryptDataframe(byte dataframe[], byte encDataframe[], int len
         Serial.println("Not authenticated");
         return false;
     }
+    if (length % getBlockSize(AuthType) != 0) {
+        Serial.println("Block size error");
+        return false;
+    }
     if (AuthType == KEYTYPE_3DES || AuthType == KEYTYPE_2K3DES) {
-        if (length % 8 != 0) {
-            Serial.println("Block size error");
-            return false;
-        }
         des.set_size(length);
         des.tdesCbcEncipher(dataframe, encDataframe);
         Serial.println("Encrpyted");
         return true;
     } else if (AuthType == KEYTYPE_AES) {
-        if (length % 16 != 0) {
-            Serial.println("Block size error");
-            return false;
-        }
         aes.encryptCBC(length, dataframe, encDataframe);
         return true;
     }
     return false;
 }
 
-int getKeyLength(int keytype) {
+int getKeyLength(KeyType keytype) {
     switch (keytype) {
         case KEYTYPE_2K3DES:
             return 16;
@@ -379,5 +360,44 @@ int getKeyLength(int keytype) {
             return 16;
         default:
             return 0;
+    }
+}
+
+int getBlockSize(KeyType keytype) {
+    switch (keytype) {
+        case KEYTYPE_2K3DES:
+            return 8;
+        case KEYTYPE_3DES:
+            return 8;
+        case KEYTYPE_AES:
+            return 16;
+        default:
+            return 0;
+    }
+}
+
+int getAuthBlockSize(KeyType keytype) {
+    switch (keytype) {
+        case KEYTYPE_2K3DES:
+            return 8;
+        case KEYTYPE_3DES:
+            return 16;
+        case KEYTYPE_AES:
+            return 16;
+        default:
+            return 0;
+    }
+}
+
+byte getAuthMode(KeyType keytype) {
+    switch (keytype) {
+        case KEYTYPE_2K3DES:
+            return 0;
+        case KEYTYPE_3DES:
+            return 1;
+        case KEYTYPE_AES:
+            return 2;
+        default:
+            return -1;
     }
 }

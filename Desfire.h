@@ -23,7 +23,7 @@ class Desfire {
     uint32_t applicationNr = 0;
     byte sessionKey[24];
     int authkeyNr;
-    int AuthType;
+    int authType;
     DES des = DES();
     AES32 aes = AES32();
     boolean EncryptDataframe(byte dataframe[], byte encDataframe[], int length);

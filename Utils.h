@@ -14,6 +14,7 @@ class Buffer {
     byte buffer[N] = {0};
     size_t size = 0;
     boolean append(byte b);
+    boolean appendBuffer(const byte* buffer, size_t n);
     boolean append24(uint32_t value);
     boolean append32(uint32_t value);
 };

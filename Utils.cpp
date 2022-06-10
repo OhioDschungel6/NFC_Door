@@ -22,6 +22,13 @@ boolean Buffer<N>::append(byte b) {
     return true;
 }
 template <size_t N>
+boolean Buffer<N>::appendBuffer(const byte* buffer, size_t n) {
+    CHECK_SIZE(n)
+    memcpy(&this->buffer[size], buffer, n);
+    size += n;
+    return true;
+}
+template <size_t N>
 boolean Buffer<N>::append24(uint32_t value) {
     CHECK_SIZE(3)
     buffer[size] = (value >> 0) & 0xff;

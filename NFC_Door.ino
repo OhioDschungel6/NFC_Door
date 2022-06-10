@@ -1,11 +1,6 @@
 
 #include <Arduino.h>
-//#include "NFC_Reader.h"
 #include <SPI.h>
-//#include <MFRC522v2.h>
-//#include <MFRC522DriverPinSimple.h>
-//#include <MFRC522DriverSPI.h>
-//#include <MFRC522Debug.h>
 #include <MFRC522Extended.h>
 
 #define RST_PIN          21         // Configurable, see typical pin layout above
@@ -51,23 +46,77 @@ void loop() {
             return;
         } else {
             isPresent = true;
-            Serial.println("Sak:");
-            Serial.println(mfrc522.uid.sak);
             if (mfrc522.uid.sak == 0x00) {
               Serial.println("Ultralight detected");
                 //dumpInfo(mfrc522.uid.uidByte, mfrc522.uid.size);
                 RequestAuthUltralightCNetwork();
             } else if (mfrc522.uid.sak == 0x20) {
-              Serial.println("Desfire detected");
-              Desfire desfire = Desfire(&mfrc522);
-              if( desfire.AuthenticateNetwork(KEYTYPE_3DES,0)){
-                
-              }
-            } else {
-                Serial.println(F("Other Card found, not compatible!"));
-                mfrc522.PICC_HaltA();
-                isPresent = false;
+                Serial.println("Desfire detected");
+                Desfire desfire = Desfire(&mfrc522);
+
+                uint32_t ids [32] = {0};
+                int maxLength = 32;
+                maxLength = desfire.GetAppIds(ids,maxLength);
+                for(int i = 0; i<maxLength;i++){
+                  Serial.println(ids[i]);
+                }
                 return;
+//                if( !desfire.AuthenticateNetwork(KEYTYPE_2K3DES,0)){
+//                  return;
+//                }
+                //if( !desfire.CreateApplication(3,2,KEYTYPE_2K3DES)){
+                 //   return;
+                //}
+                //if( !desfire.SelectApplication(3)){
+                  //  return;
+                //}
+//                byte key [24] = {0};
+//                if( !desfire.ChangeKey(key, KEYTYPE_AES,0)){
+//                  return;
+//                }
+//                if( !desfire.AuthenticateNetwork(KEYTYPE_AES,0)){
+//                    return;
+//                }
+                
+                
+//                if( !desfire.DeleteApplication(1)){
+//                  return;
+//                }
+//                if( !desfire.DeleteApplication(2)){
+//                  return;
+//                }
+//                if( !desfire.CreateApplication(1,2,KEYTYPE_AES)){
+//                  return;
+//                }
+//                if( !desfire.CreateApplication(2,2,KEYTYPE_3DES)){
+//                  return;
+//                }
+//                if( !desfire.SelectApplication(2)){
+//                  return;
+//                }
+//                if( !desfire.AuthenticateNetwork(KEYTYPE_3DES,0)){
+//                  return;
+//                }
+//                byte key [24] = {0x00 ,0x10 ,0x20 ,0x31 ,0x40 ,0x50 ,0x60 ,0x70 ,0x80 ,0x90 ,0xA0 ,0xB0 ,0xB0 ,0xA0 ,0x90 ,0x80,0x70 ,0x60 ,0x50 ,0x40 ,0x30 ,0x20 ,0x10 ,0x00};
+//                if( !desfire.ChangeKey(key, KEYTYPE_3DES,0)){
+//                  return;
+//                }
+//                if( !desfire.SelectApplication(0)){
+//                  return;
+//                }
+//                if( !desfire.AuthenticateNetwork(KEYTYPE_DES,0)){
+//                  return;
+//                }
+                //if( !desfire.DeleteApplication(1)){
+                //  return;
+                //}
+                
+                //desfire.ChangeKey(key ,KEYTYPE_AES);
+            } else {
+              Serial.println(F("Other Card found, not compatible!"));
+              mfrc522.PICC_HaltA();
+              isPresent = false;
+              return;
             }
         }
     }

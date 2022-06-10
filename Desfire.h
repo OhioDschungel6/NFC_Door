@@ -2,23 +2,34 @@
 #include <MFRC522Extended.h>
 #include "NetworkClient.h"
 #include "Utils.h"
+#include <DES.h>
+#include <AES32.h>
 
 class Desfire {
   public:
     Desfire(MFRC522Extended* mfrc522);
     boolean AuthenticateNetwork(int keytype, int keyNr);
-    boolean ChangeKey(byte key[], int keytype);
+    boolean ChangeKey(byte key[], int keytype, int keyNr);
+    boolean SelectApplication(uint32_t appId);
+    boolean CreateApplication(uint32_t appId, byte keyCount, int keyType);
+    boolean DeleteApplication(uint32_t appId);
+    boolean FormatCard();
+    int GetAppIds(uint32_t appIds[],int maxLength);
     
   private:
     MFRC522Extended* mfrc522;
     boolean authenticated = false;
-    int applicationNr = 0;
-    int sessionKey;
-    byte key[];
+    uint32_t applicationNr = 0;
+    byte sessionKey[24];
+	int authkeyNr;
+    int AuthType;
+    DES des = DES();
+    AES32 aes = AES32();
+    boolean EncryptDataframe(byte dataframe[],byte encDataframe[] , int length);
 };
 enum KeyTypes
 {
-    KEYTYPE_DES  = 0x00,
+    KEYTYPE_2K3DES  = 0x00,
     KEYTYPE_3DES = 0x40, 
     KEYTYPE_AES  = 0x80, 
 };

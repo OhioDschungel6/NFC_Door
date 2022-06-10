@@ -11,7 +11,7 @@ uint32_t parseAppId(byte* buffer);
 template <size_t N>
 class Buffer {
    public:
-    byte buffer[N];
+    byte buffer[N] = {0};
     size_t size = 0;
     boolean append(byte b);
     boolean append24(uint32_t value);

@@ -2,16 +2,19 @@
 
 #include <CRC32.h>
 
-int getKeyLength(int keytype);
+int getKeyLength(KeyType keyType);
+int getBlockSize(KeyType keyType);
+int getAuthBlockSize(KeyType keyType);
+byte getAuthMode(KeyType keyType);
 boolean encryptDataframe(byte dataframe[], int length);
 
 Desfire::Desfire(MFRC522Extended* mfrc522) {
     this->mfrc522 = mfrc522;
 }
 
-boolean Desfire::AuthenticateNetwork(int keytype, int keyNr) {
+boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
     byte cmd;
-    switch (keytype) {
+    switch (keyType) {
         case KEYTYPE_2K3DES:
         case KEYTYPE_3DES:
             cmd = 0x1A;
@@ -28,11 +31,11 @@ boolean Desfire::AuthenticateNetwork(int keytype, int keyNr) {
     byte AuthLength = 64;
     byte message[64] = {0};  // Message to transfer
 
-    byte authMode[1] = getAuthMode(keytype);
-    byte blockSize = getAuthBlockSize(keytype);
+    byte authMode = getAuthMode(keyType);
+    byte blockSize = getAuthBlockSize(keyType);
 
     // Notify server if 3DES or AES
-    client.Send(authMode, 1);
+    client.Send(&authMode, 1);
 
     //#Step 0: Get and send id
     client.Send(mfrc522->uid.uidByte, 7);
@@ -75,21 +78,21 @@ boolean Desfire::AuthenticateNetwork(int keytype, int keyNr) {
         if (AuthBuffer[0] == DesfireStatusCode_OPERATION_OK) {  // reply from PICC should start with 0x00
             memcpy(message, &AuthBuffer[1], 16);                // copy enc(RndA')
             client.Send(message, 16);                           // ek(RndA')
-            AuthType = keytype;
+            authType = keyType;
             authenticated = true;
             authkeyNr = keyNr;
-            if (AuthType == KEYTYPE_2K3DES) {
+            if (authType == KEYTYPE_2K3DES) {
                 client.Recieve(sessionKey, 16);
                 byte deskey[24];  // = {0x36 ,0xC4 ,0xF8 ,0xBE ,0x30 ,0x6E ,0x6C ,0x76 ,0xAC ,0x22 ,0x9E ,0x8C ,0xF8 ,0x24 ,0xBA ,0x30 ,0x32 ,0x50 ,0xD4 ,0xAA ,0x64 ,0x36 ,0x56 ,0xA2};
                 memcpy(deskey, sessionKey, 16);
                 memcpy(deskey + 16, sessionKey, 8);
                 des.init(deskey, 0);
-            } else if (AuthType == KEYTYPE_3DES) {
+            } else if (authType == KEYTYPE_3DES) {
                 client.Recieve(sessionKey, 24);
                 byte deskey[24];  // = {0x36 ,0xC4 ,0xF8 ,0xBE ,0x30 ,0x6E ,0x6C ,0x76 ,0xAC ,0x22 ,0x9E ,0x8C ,0xF8 ,0x24 ,0xBA ,0x30 ,0x32 ,0x50 ,0xD4 ,0xAA ,0x64 ,0x36 ,0x56 ,0xA2};
                 memcpy(deskey, sessionKey, 24);
                 des.init(deskey, 0);
-            } else if (AuthType == KEYTYPE_AES) {
+            } else if (authType == KEYTYPE_AES) {
                 client.Recieve(sessionKey, 16);
                 byte iv[16] = {0};
                 aes.setIV(iv);
@@ -113,7 +116,7 @@ boolean Desfire::SelectApplication(uint32_t appId) {
     message.append24(appId);
 
     byte response[32] = {0};
-    int responseLength;
+    byte responseLength;
     status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, message.size, response, &responseLength);
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Select App failed");
@@ -136,7 +139,7 @@ boolean Desfire::DeleteApplication(uint32_t appId) {
     message.append24(appId);
 
     byte response[32] = {0};
-    int responseLength;
+    byte responseLength;
     status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, message.size, response, &responseLength);
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Delete App failed");
@@ -172,7 +175,7 @@ boolean Desfire::FormatCard() {
     return true;
 }
 
-boolean Desfire::CreateApplication(uint32_t appId, byte keyCount, int keyType) {
+boolean Desfire::CreateApplication(uint32_t appId, byte keyCount, KeyType keyType) {
     Serial.println("Create Application");
     MFRC522::StatusCode status;
     Buffer<32> message;
@@ -183,7 +186,7 @@ boolean Desfire::CreateApplication(uint32_t appId, byte keyCount, int keyType) {
     // dumpInfo(message, 6);
 
     byte response[32] = {0};
-    int responseLength;
+    byte responseLength;
     status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, message.size, response, &responseLength);
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Create App failed");
@@ -199,12 +202,12 @@ boolean Desfire::CreateApplication(uint32_t appId, byte keyCount, int keyType) {
     return true;
 }
 
-boolean Desfire::ChangeKey(byte key[], int keytype, int keyNr) {
+boolean Desfire::ChangeKey(byte key[], KeyType keyType, int keyNr) {
     if (!authenticated) {
         Serial.println("Not authenticated");
         return false;
     }
-    int keyLength = getKeyLength(keytype);
+    int keyLength = getKeyLength(keyType);
     boolean isSameKey = (keyNr == authkeyNr);
 
     byte keyVersion = 1;
@@ -215,7 +218,7 @@ boolean Desfire::ChangeKey(byte key[], int keytype, int keyNr) {
     message[1] = keyNr;
     memcpy(message + 2, key, keyLength);
     if (applicationNr == 0) {
-        message[1] |= keytype;
+        message[1] |= keyType;
     }
     if (!isSameKey) {
         byte oldKey[24] = {0};
@@ -224,7 +227,7 @@ boolean Desfire::ChangeKey(byte key[], int keytype, int keyNr) {
         }
     }
     messageLength = keyLength + 2;
-    if (keytype == KEYTYPE_AES) {
+    if (keyType == KEYTYPE_AES) {
         message[messageLength] = keyVersion;
         messageLength++;
     }
@@ -245,7 +248,7 @@ boolean Desfire::ChangeKey(byte key[], int keytype, int keyNr) {
         messageLength += 4;
     }
     // TODO only for applicationKeys atm
-    int blockSize = getBlockSize(AuthType);
+    int blockSize = getBlockSize(authType);
     if ((messageLength - 2) % blockSize != 0) {
         // setSize to next multiple of block size
         messageLength += blockSize - ((messageLength - 2) % blockSize);
@@ -296,7 +299,7 @@ int Desfire::GetAppIds(uint32_t appIds[], int maxLength) {
     }
     dumpInfo(message, messageLength);
     for (int i = 1; i <= messageLength - 3; i += 3) {
-        appIds[ids++] = parseAppId(&p[i]);
+        appIds[ids++] = parseAppId(&message[i]);
         if (ids == maxLength) {
             return ids;
         }
@@ -315,7 +318,7 @@ int Desfire::GetAppIds(uint32_t appIds[], int maxLength) {
             return ids;
         }
         for (int i = 1; i <= messageLength - 3; i += 3) {
-            appIds[ids++] = parseAppId(&p[i]);
+            appIds[ids++] = parseAppId(&message[i]);
             if (ids == maxLength) {
                 return ids;
             }
@@ -329,24 +332,24 @@ boolean Desfire::EncryptDataframe(byte dataframe[], byte encDataframe[], int len
         Serial.println("Not authenticated");
         return false;
     }
-    if (length % getBlockSize(AuthType) != 0) {
+    if (length % getBlockSize(authType) != 0) {
         Serial.println("Block size error");
         return false;
     }
-    if (AuthType == KEYTYPE_3DES || AuthType == KEYTYPE_2K3DES) {
+    if (authType == KEYTYPE_3DES || authType == KEYTYPE_2K3DES) {
         des.set_size(length);
         des.tdesCbcEncipher(dataframe, encDataframe);
         Serial.println("Encrpyted");
         return true;
-    } else if (AuthType == KEYTYPE_AES) {
+    } else if (authType == KEYTYPE_AES) {
         aes.encryptCBC(length, dataframe, encDataframe);
         return true;
     }
     return false;
 }
 
-int getKeyLength(KeyType keytype) {
-    switch (keytype) {
+int getKeyLength(KeyType keyType) {
+    switch (keyType) {
         case KEYTYPE_2K3DES:
             return 16;
         case KEYTYPE_3DES:
@@ -358,8 +361,8 @@ int getKeyLength(KeyType keytype) {
     }
 }
 
-int getBlockSize(KeyType keytype) {
-    switch (keytype) {
+int getBlockSize(KeyType keyType) {
+    switch (keyType) {
         case KEYTYPE_2K3DES:
             return 8;
         case KEYTYPE_3DES:
@@ -371,8 +374,8 @@ int getBlockSize(KeyType keytype) {
     }
 }
 
-int getAuthBlockSize(KeyType keytype) {
-    switch (keytype) {
+int getAuthBlockSize(KeyType keyType) {
+    switch (keyType) {
         case KEYTYPE_2K3DES:
             return 8;
         case KEYTYPE_3DES:
@@ -384,8 +387,8 @@ int getAuthBlockSize(KeyType keytype) {
     }
 }
 
-byte getAuthMode(KeyType keytype) {
-    switch (keytype) {
+byte getAuthMode(KeyType keyType) {
+    switch (keyType) {
         case KEYTYPE_2K3DES:
             return 0;
         case KEYTYPE_3DES:

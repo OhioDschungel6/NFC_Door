@@ -12,7 +12,7 @@ template <size_t N>
 class Buffer {
    public:
     byte buffer[N] = {0};
-    size_t size = 0;
+    byte size = 0;
     void clear();
     boolean append(byte b);
     boolean appendBuffer(const byte* buffer, size_t n);

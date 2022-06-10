@@ -6,13 +6,18 @@
 #include "NetworkClient.h"
 #include "Utils.h"
 
+enum KeyType : byte {
+    KEYTYPE_2K3DES = 0x00,
+    KEYTYPE_3DES = 0x40,
+    KEYTYPE_AES = 0x80,
+};
 class Desfire {
    public:
     Desfire(MFRC522Extended* mfrc522);
-    boolean AuthenticateNetwork(int keytype, int keyNr);
-    boolean ChangeKey(byte key[], int keytype, int keyNr);
+    boolean AuthenticateNetwork(KeyType keyType, int keyNr);
+    boolean ChangeKey(byte key[], KeyType keyType, int keyNr);
     boolean SelectApplication(uint32_t appId);
-    boolean CreateApplication(uint32_t appId, byte keyCount, int keyType);
+    boolean CreateApplication(uint32_t appId, byte keyCount, KeyType keyType);
     boolean DeleteApplication(uint32_t appId);
     boolean FormatCard();
     int GetAppIds(uint32_t appIds[], int maxLength);
@@ -23,15 +28,10 @@ class Desfire {
     uint32_t applicationNr = 0;
     byte sessionKey[24];
     int authkeyNr;
-    int AuthType;
+    KeyType authType;
     DES des = DES();
     AES32 aes = AES32();
     boolean EncryptDataframe(byte dataframe[], byte encDataframe[], int length);
-};
-enum KeyType : byte {
-    KEYTYPE_2K3DES = 0x00,
-    KEYTYPE_3DES = 0x40,
-    KEYTYPE_AES = 0x80,
 };
 enum DesfireStatusCode : byte {
     DesfireStatusCode_OPERATION_OK = 0x00,          /* successful operation */

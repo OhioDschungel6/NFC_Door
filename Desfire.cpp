@@ -108,19 +108,19 @@ boolean Desfire::AuthenticateNetwork(int keytype, int keyNr) {
 boolean Desfire::SelectApplication(uint32_t appId) {
     Serial.println("Select Application");
     MFRC522::StatusCode status;
-    byte message[32] = {0};
-    byte messageLength = 32;
-    message[0] = 0x5A;
-    message[1] = (appId >> 16) & 0xFF;
-    message[2] = (appId >> 8) & 0xFF;
-    message[3] = (appId)&0xFF;
-    status = mfrc522->TCL_Transceive(&mfrc522->tag, message, 4, message, &messageLength);
+    Buffer<32> message;
+    message.append(0x5A);
+    message.append24(appId);
+
+    byte response[32] = {0};
+    int responseLength;
+    status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, message.size, response, &responseLength);
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Select App failed");
         Serial.println(MFRC522::GetStatusCodeName(status));
         return false;
     }
-    if (message[0] != DesfireStatusCode_OPERATION_OK) {
+    if (response[0] != DesfireStatusCode_OPERATION_OK) {
         Serial.println("Select App failed");
         return false;
     }
@@ -131,19 +131,19 @@ boolean Desfire::SelectApplication(uint32_t appId) {
 boolean Desfire::DeleteApplication(uint32_t appId) {
     Serial.println("Delete Application");
     MFRC522::StatusCode status;
-    byte message[32] = {0};
-    byte messageLength = 32;
-    message[0] = 0xDA;
-    message[1] = (appId >> 16) & 0xFF;
-    message[2] = (appId >> 8) & 0xFF;
-    message[3] = (appId)&0xFF;
-    status = mfrc522->TCL_Transceive(&mfrc522->tag, message, 4, message, &messageLength);
+    Buffer<32> message;
+    message.append(0xDA);
+    message.append24(appId);
+
+    byte response[32] = {0};
+    int responseLength;
+    status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, message.size, response, &responseLength);
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Delete App failed");
         Serial.println(MFRC522::GetStatusCodeName(status));
         return false;
     }
-    if (message[0] != DesfireStatusCode_OPERATION_OK) {
+    if (response[0] != DesfireStatusCode_OPERATION_OK) {
         Serial.println("Delete App failed");
         return false;
     }
@@ -175,25 +175,24 @@ boolean Desfire::FormatCard() {
 boolean Desfire::CreateApplication(uint32_t appId, byte keyCount, int keyType) {
     Serial.println("Create Application");
     MFRC522::StatusCode status;
-    byte message[32] = {0};
-    byte messageLength = 32;
-    message[0] = 0xCA;
-    message[1] = (appId >> 16) & 0xFF;
-    message[2] = (appId >> 8) & 0xFF;
-    message[3] = (appId)&0xFF;
-    message[4] = 0x0F;  // Who can change key, 0F is factory default. TODO enum;
-    message[5] |= keyType;
-    message[5] |= keyCount;
+    Buffer<32> message;
+    message.append(0xCA);
+    message.append24(appId);
+    message.append(0x0F);  // Who can change key, 0F is factory default. TODO enum;
+    message.append(keyType | keyCount);
     // dumpInfo(message, 6);
-    status = mfrc522->TCL_Transceive(&mfrc522->tag, message, 6, message, &messageLength);
+
+    byte response[32] = {0};
+    int responseLength;
+    status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, message.size, response, &responseLength);
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Create App failed");
         Serial.println(MFRC522::GetStatusCodeName(status));
         return false;
     }
-    if (message[0] != DesfireStatusCode_OPERATION_OK) {
+    if (response[0] != DesfireStatusCode_OPERATION_OK) {
         Serial.println("Create App failed");
-        dumpInfo(message, messageLength);
+        dumpInfo(response, responseLength);
         return false;
     }
     Serial.println("Application created");

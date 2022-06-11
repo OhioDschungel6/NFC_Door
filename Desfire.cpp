@@ -57,7 +57,7 @@ boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
     }
     if (response[0] != DesfireStatusCode_ADDITIONAL_FRAME) {
         Serial.println("Desfire Auth failed");
-        // TODO ERROR CODE
+        dumpInfo(response,responseLength);
         return false;
     }
 
@@ -76,7 +76,7 @@ boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
         return false;
     } else {
         if (response[0] == DesfireStatusCode_OPERATION_OK) {  // reply from PICC should start with 0x00
-            client.Send(&response[1], 16);                    // ek(RndA')
+            client.Send(&response[1], blockSize);                    // ek(RndA')
             authType = keyType;
             authenticated = true;
             authkeyNr = keyNr;

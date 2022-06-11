@@ -11,7 +11,7 @@ void dumpInfo(byte* ar, int len) {
 }
 
 uint32_t parseAppId(const byte* buffer) {
-    return buffer[0] | buffer[1] << 8 | buffer[2] << 6;
+    return buffer[0] | buffer[1] << 8 | buffer[2] << 16;
 }
 
 template <size_t N>

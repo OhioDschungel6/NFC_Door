@@ -1,4 +1,4 @@
-# Writer (Hardware) Seqeuenz
+# Seqeuenz Writer (Hardware)
 - Event: Karte aufgelegt:
     - prüfe MasterKey Typ
     - -> Server: Authenticate Typ, UID, Masterkey

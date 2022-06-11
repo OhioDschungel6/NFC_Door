@@ -1,0 +1,35 @@
+# Writer (Hardware) Seqeuenz
+- Event: Karte aufgelegt:
+    - prüfe MasterKey Typ
+    - -> Server: Authenticate Typ, UID, Masterkey
+    - wenn Authentication nicht erfolgreich:
+        - TODO: check, ob Applications angelegt werden dürfen
+        - wenn nicht erlaubt:
+            - Website: Fehler Karte nicht beschreibbar
+            - return
+    - wenn Authentication erfolgreich:
+        - Wenn Masterkey != AES:
+            - -> Server: ChangeKey AES, UID, MasterKey
+    - -> Server: ist UID bekannt
+    - <- Server: App ID oder 0
+    - wenn App ID != 0:
+        - Select App
+        - -> Server: Authenticate AES, UID, AppId
+        - wenn Authentifizierung erfolgreich:
+            - Kartenname auf Website anzeigen
+        - sonst:
+            - Website: Neue Karte
+            - App ID = 0
+    - sonst:
+        - Website: Neue Karte
+    - Event: Website: Write Key
+        - wenn App ID == 0:
+            - GetApplicationIds
+            - App ID = finde freie Application
+            - CreateApplication: App ID
+        - -> Server: Authenticate AES, UID, AppId
+        - wenn nicht erfolgreich:
+            - Illegal State (kann nicht passieren)
+            - return
+        - -> Server: ChangeKey AES, UID, AppId        
+        - Website: Key geändert

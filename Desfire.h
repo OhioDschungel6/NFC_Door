@@ -57,3 +57,14 @@ enum DesfireStatusCode : byte {
     DesfireStatusCode_FILE_NOT_FOUND = 0xF0,        /* specified file number doesnt exist */
     DesfireStatusCode_FILE_INTEGRITY_ERROR = 0xF1   /* unrecoverable error within file */
 };
+
+enum DesfireCommand : byte {
+    DesfireCommand_AUTHENTICATE_LEGACY = 0x1A,   
+    DesfireCommand_AUTHENTICATE = 0xAA, 
+    DesfireCommand_SELECT_APPLICATION = 0x5A, 
+    DesfireCommand_CREATE_APPLICATION = 0xCA, 
+    DesfireCommand_DELETE_APPLICATION = 0xDA,
+    DesfireCommand_FORMAT_CARD = 0xFC,  
+    DesfireCommand_CHANGE_KEY = 0xC4,
+    DesfireCommand_GET_APPLICATIONS = 0x6A,  
+};

@@ -6,21 +6,20 @@ int getKeyLength(KeyType keyType);
 int getBlockSize(KeyType keyType);
 int getAuthBlockSize(KeyType keyType);
 byte getAuthMode(KeyType keyType);
-boolean encryptDataframe(byte dataframe[], int length);
 
 Desfire::Desfire(MFRC522Extended* mfrc522) {
     this->mfrc522 = mfrc522;
 }
 
 boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
-    byte cmd;
+    DesfireCommand cmd;
     switch (keyType) {
         case KEYTYPE_2K3DES:
         case KEYTYPE_3DES:
-            cmd = 0x1A;
+            cmd = DesfireCommand_AUTHENTICATE_LEGACY;
             break;
         case KEYTYPE_AES:
-            cmd = 0xAA;
+            cmd = DesfireCommand_AUTHENTICATE;
             break;
         default:
             // Not implemented
@@ -29,7 +28,7 @@ boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
     NetworkClient client;
     Buffer<64> message;
     byte response[64] = {0};
-    size_t responseLength = 0;
+    byte responseLength = 64;
 
     byte authMode = getAuthMode(keyType);
     byte blockSize = getAuthBlockSize(keyType);
@@ -111,11 +110,11 @@ boolean Desfire::SelectApplication(uint32_t appId) {
     Serial.println("Select Application");
     MFRC522::StatusCode status;
     Buffer<32> message;
-    message.append(0x5A);
+    message.append(DesfireCommand_SELECT_APPLICATION);
     message.append24(appId);
 
     byte response[32] = {0};
-    byte responseLength;
+    byte responseLength =32;
     status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, message.size, response, &responseLength);
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Select App failed");
@@ -134,11 +133,11 @@ boolean Desfire::DeleteApplication(uint32_t appId) {
     Serial.println("Delete Application");
     MFRC522::StatusCode status;
     Buffer<32> message;
-    message.append(0xDA);
+    message.append(DesfireCommand_DELETE_APPLICATION);
     message.append24(appId);
 
     byte response[32] = {0};
-    byte responseLength;
+    byte responseLength =32;
     status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, message.size, response, &responseLength);
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Delete App failed");
@@ -158,7 +157,7 @@ boolean Desfire::FormatCard() {
     MFRC522::StatusCode status;
     byte message[32] = {0};
     byte messageLength = 32;
-    message[0] = 0xFC;
+    message[0] = DesfireCommand_FORMAT_CARD;
     status = mfrc522->TCL_Transceive(&mfrc522->tag, message, 1, message, &messageLength);
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Formatting failed");
@@ -178,14 +177,14 @@ boolean Desfire::CreateApplication(uint32_t appId, byte keyCount, KeyType keyTyp
     Serial.println("Create Application");
     MFRC522::StatusCode status;
     Buffer<32> message;
-    message.append(0xCA);
+    message.append(DesfireCommand_CREATE_APPLICATION);
     message.append24(appId);
     message.append(0x0F);  // Who can change key, 0F is factory default. TODO enum;
     message.append(keyType | keyCount);
     // dumpInfo(message, 6);
 
     byte response[32] = {0};
-    byte responseLength;
+    byte responseLength = 32;
     status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, message.size, response, &responseLength);
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Create App failed");
@@ -212,19 +211,18 @@ boolean Desfire::ChangeKey(byte key[], KeyType keyType, int keyNr) {
     byte keyVersion = 1;
     Buffer<40> message;
 
-    message.append(0xC4);
+    message.append(DesfireCommand_CHANGE_KEY);
     if (applicationNr == 0) {
         message.append(keyNr | keyType);
     } else {
         message.append(keyNr);
     }
-    size_t cryptogramStart = message.size;
+    byte cryptogramStart = message.size;
     message.appendBuffer(key, keyLength);
     if (!isSameKey) {
         byte oldKey[24] = {0};
-        size_t offset = buffer.size - keyLength;
         for (int i = 0; i < keyLength; i++) {
-            message.buffer[i + offset] ^= oldKey[i];
+            message.buffer[i + cryptogramStart] ^= oldKey[i];
         }
     }
     if (keyType == KEYTYPE_AES) {
@@ -238,26 +236,25 @@ boolean Desfire::ChangeKey(byte key[], KeyType keyType, int keyNr) {
         crc32 = ~CRC32::calculate(key, keyLength);
         message.append32(crc32);
     }
-    // TODO only for applicationKeys atm
     int blockSize = getBlockSize(authType);
     int lastBlockSize = (message.size - cryptogramStart) % blockSize;
     if (lastBlockSize != 0) {
-        // setSize to next multiple of block size
+        // set size to next multiple of block size
         message.pad(blockSize - lastBlockSize);
     }
     // Encrypt
     byte encDataframe[message.size] = {0};
 
-    size_t cryptogramSize = message.size - cryptogramStart;
+    byte cryptogramSize = message.size - cryptogramStart;
     if (!EncryptDataframe(&message.buffer[cryptogramStart], encDataframe, cryptogramSize)) {
         Serial.println("Encryption failed");
         return false;
     }
-    message.replace(cryptogramStart, encryptDataframe, cryptogramSize);
+    message.replace(cryptogramStart, encDataframe, cryptogramSize);
 
     MFRC522::StatusCode status;
     byte response[40] = {0};
-    size_t responseLength;
+    byte responseLength =40;
     status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, message.size, response, &responseLength);
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Key change failed");
@@ -281,7 +278,7 @@ int Desfire::GetAppIds(uint32_t appIds[], int maxLength) {
     byte message[128] = {0};
     byte messageLength = 128;
     int ids = 0;
-    message[0] = 0x6A;
+    message[0] = DesfireCommand_GET_APPLICATIONS;
     status = mfrc522->TCL_Transceive(&mfrc522->tag, message, 1, message, &messageLength);
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Retrieving App Ids failed");
@@ -293,7 +290,6 @@ int Desfire::GetAppIds(uint32_t appIds[], int maxLength) {
         dumpInfo(message, messageLength);
         return ids;
     }
-    dumpInfo(message, messageLength);
     for (int i = 1; i <= messageLength - 3; i += 3) {
         appIds[ids++] = parseAppId(&message[i]);
         if (ids == maxLength) {

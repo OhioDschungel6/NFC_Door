@@ -53,19 +53,22 @@ void loop() {
                 Serial.println("Desfire detected");
                 Desfire desfire = Desfire(&mfrc522);
 
-                uint32_t ids[32] = {0};
-                int maxLength = 32;
-                maxLength = desfire.GetAppIds(ids, maxLength);
-                for (int i = 0; i < maxLength; i++) {
-                    Serial.println(ids[i]);
+                if( !desfire.AuthenticateNetwork(KEYTYPE_AES,0)){
+                    return;
                 }
-                return;
-                //                if( !desfire.AuthenticateNetwork(KEYTYPE_2K3DES,0)){
-                //                  return;
-                //                }
-                // if( !desfire.CreateApplication(3,2,KEYTYPE_2K3DES)){
+                //if( !desfire.CreateApplication(5,2,KEYTYPE_AES)){
                 //   return;
                 //}
+                if( !desfire.SelectApplication(5)){
+                   return;
+                }
+                if( !desfire.AuthenticateNetwork(KEYTYPE_AES,0)){
+                    return;
+                }
+                byte key [24] = {0x00 ,0x10 ,0x20 ,0x31 ,0x40 ,0x50 ,0x60 ,0x70 ,0x80 ,0x90 ,0xA0 ,0xB0 ,0xB0 ,0xA0 ,0x90 ,0x80,0x70 ,0x60 ,0x50 ,0x40 ,0x30 ,0x20 ,0x10 ,0x00};
+                if( !desfire.ChangeKey(key, KEYTYPE_AES,0)){
+                    return;
+                }
                 // if( !desfire.SelectApplication(3)){
                 //  return;
                 //}

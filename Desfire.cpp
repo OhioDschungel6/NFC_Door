@@ -27,9 +27,9 @@ boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
             return false;
     }
     NetworkClient client;
-    byte AuthBuffer[64] = {0};  //
-    byte AuthLength = 64;
-    byte message[64] = {0};  // Message to transfer
+    Buffer<64> message;
+    byte response[64] = {0};
+    size_t responseLength = 0;
 
     byte authMode = getAuthMode(keyType);
     byte blockSize = getAuthBlockSize(keyType);
@@ -44,40 +44,39 @@ boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
     MFRC522::StatusCode status;
     // Step - 1
     //  Build command buffer
-    AuthBuffer[0] = cmd;
-    AuthBuffer[1] = keyNr;
+    message.append(cmd);
+    message.append(keyNr);
 
     // Transmit the buffer and receive the response
     // Step - 2
-    status = mfrc522->TCL_Transceive(&mfrc522->tag, AuthBuffer, 2, AuthBuffer, &AuthLength);
+    status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, message.size, response, &responseLength);
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Desfire Auth failed");
         Serial.println(MFRC522::GetStatusCodeName(status));
         return false;
     }
-    if (AuthBuffer[0] != DesfireStatusCode_ADDITIONAL_FRAME) {
+    if (response[0] != DesfireStatusCode_ADDITIONAL_FRAME) {
         Serial.println("Desfire Auth failed");
         // TODO ERROR CODE
         return false;
     }
 
-    memcpy(message, AuthBuffer + 1, blockSize);  // copy the enc(RndB) from the message
-
     // Step - 3
-    client.Send(message, blockSize);         // ek(RndB)
-    client.Recieve(message, blockSize * 2);  // ek(RndA || RndB')
-    AuthBuffer[0] = DesfireStatusCode_ADDITIONAL_FRAME;
-    memcpy(AuthBuffer + 1, message, blockSize * 2);
+    client.Send(response + 1, blockSize);     // ek(RndB)
+    client.Recieve(response, blockSize * 2);  // ek(RndA || RndB')
+
+    message.clear();
+    message.append(DesfireStatusCode_ADDITIONAL_FRAME);
+    message.appendBuffer(response, blockSize * 2);
     // Step - 4
-    status = mfrc522->TCL_Transceive(&mfrc522->tag, AuthBuffer, 1 + 2 * blockSize, AuthBuffer, &AuthLength);
+    status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, message.size, response, &responseLength);
     if (status != MFRC522::STATUS_OK) {
         Serial.print(F("Auth failed failed: "));
         Serial.println(MFRC522::GetStatusCodeName(status));
         return false;
     } else {
-        if (AuthBuffer[0] == DesfireStatusCode_OPERATION_OK) {  // reply from PICC should start with 0x00
-            memcpy(message, &AuthBuffer[1], 16);                // copy enc(RndA')
-            client.Send(message, 16);                           // ek(RndA')
+        if (response[0] == DesfireStatusCode_OPERATION_OK) {  // reply from PICC should start with 0x00
+            client.Send(&response[1], 16);                    // ek(RndA')
             authType = keyType;
             authenticated = true;
             authkeyNr = keyNr;
@@ -102,7 +101,7 @@ boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
             return true;
         } else {
             Serial.println(F("Wrong answer!"));
-            dumpInfo(AuthBuffer, AuthLength);
+            dumpInfo(response, responseLength);
         }
     }
     return false;
@@ -211,58 +210,55 @@ boolean Desfire::ChangeKey(byte key[], KeyType keyType, int keyNr) {
     boolean isSameKey = (keyNr == authkeyNr);
 
     byte keyVersion = 1;
-    byte message[40] = {0};
-    byte messageLength = 0;
+    Buffer<40> message;
 
-    message[0] = 0xC4;
-    message[1] = keyNr;
-    memcpy(message + 2, key, keyLength);
+    message.append(0xC4);
     if (applicationNr == 0) {
-        message[1] |= keyType;
+        message.append(keyNr | keyType);
+    } else {
+        message.append(keyNr);
     }
+    size_t cryptogramStart = message.size;
+    message.appendBuffer(key, keyLength);
     if (!isSameKey) {
         byte oldKey[24] = {0};
+        size_t offset = buffer.size - keyLength;
         for (int i = 0; i < keyLength; i++) {
-            message[i + 2] ^= oldKey[i];
+            message.buffer[i + offset] ^= oldKey[i];
         }
     }
-    messageLength = keyLength + 2;
     if (keyType == KEYTYPE_AES) {
-        message[messageLength] = keyVersion;
-        messageLength++;
+        message.append(keyVersion);
     }
 
     // Calculate CRC32
-    uint32_t crc32 = ~CRC32::calculate(message, messageLength);
-    message[messageLength] = (crc32)&0xFF;
-    message[messageLength + 1] = (crc32 >> 8) & 0xFF;
-    message[messageLength + 2] = (crc32 >> 16) & 0xFF;
-    message[messageLength + 3] = crc32 >> 24;
-    messageLength += 4;
+    uint32_t crc32 = ~CRC32::calculate(message.buffer, message.size);
+    message.append32(crc32);
     if (!isSameKey) {
         crc32 = ~CRC32::calculate(key, keyLength);
-        message[messageLength] = (crc32)&0xFF;
-        message[messageLength + 1] = (crc32 >> 8) & 0xFF;
-        message[messageLength + 2] = (crc32 >> 16) & 0xFF;
-        message[messageLength + 3] = crc32 >> 24;
-        messageLength += 4;
+        message.append32(crc32);
     }
     // TODO only for applicationKeys atm
     int blockSize = getBlockSize(authType);
-    if ((messageLength - 2) % blockSize != 0) {
+    int lastBlockSize = (message.size - cryptogramStart) % blockSize;
+    if (lastBlockSize != 0) {
         // setSize to next multiple of block size
-        messageLength += blockSize - ((messageLength - 2) % blockSize);
+        message.pad(blockSize - lastBlockSize);
     }
     // Encrypt
-    byte encDataframe[messageLength] = {0};
+    byte encDataframe[message.size] = {0};
 
-    if (!EncryptDataframe(message + 2, encDataframe, messageLength - 2)) {
+    size_t cryptogramSize = message.size - cryptogramStart;
+    if (!EncryptDataframe(&message.buffer[cryptogramStart], encDataframe, cryptogramSize)) {
         Serial.println("Encryption failed");
         return false;
     }
-    memcpy(message + 2, encDataframe, messageLength - 2);
+    message.replace(cryptogramStart, encryptDataframe, cryptogramSize);
+
     MFRC522::StatusCode status;
-    status = mfrc522->TCL_Transceive(&mfrc522->tag, message, messageLength, message, &messageLength);
+    byte response[40] = {0};
+    size_t responseLength;
+    status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, message.size, response, &responseLength);
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Key change failed");
         Serial.println(MFRC522::GetStatusCodeName(status));
@@ -271,8 +267,8 @@ boolean Desfire::ChangeKey(byte key[], KeyType keyType, int keyNr) {
     if (isSameKey) {
         authenticated = false;
     }
-    if (message[0] != DesfireStatusCode_OPERATION_OK) {
-        dumpInfo(message, messageLength);
+    if (response[0] != DesfireStatusCode_OPERATION_OK) {
+        dumpInfo(response, responseLength);
         Serial.println("Key change failed");
         return false;
     }

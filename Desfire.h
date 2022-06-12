@@ -16,11 +16,13 @@ class Desfire {
     Desfire(MFRC522Extended* mfrc522);
     boolean AuthenticateNetwork(KeyType keyType, int keyNr);
     boolean ChangeKey(byte key[], KeyType keyType, int keyNr);
+    boolean ChangeKeyNetwork(KeyType keyType);
     boolean SelectApplication(uint32_t appId);
     boolean CreateApplication(uint32_t appId, byte keyCount, KeyType keyType);
     boolean DeleteApplication(uint32_t appId);
     boolean FormatCard();
     int GetAppIds(uint32_t appIds[], int maxLength);
+    uint32_t GetAppIdFromNetwork();
 
    private:
     MFRC522Extended* mfrc522;

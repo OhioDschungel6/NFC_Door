@@ -300,7 +300,7 @@ boolean Desfire::ChangeKeyNetwork(KeyType keyType) {
     byte serverCommand = 0xC4;
     String name = "Big A";
 
-    Buffer<255> message;
+    Buffer<300> message;
     message.append(serverCommand);
     message.append(keyType);
     message.appendBuffer(mfrc522->uid.uidByte, 7);
@@ -314,9 +314,9 @@ boolean Desfire::ChangeKeyNetwork(KeyType keyType) {
     client.Recieve(&messageLength, 1);
     // TODO Check if messageLength > bufferLength
     client.Recieve(message.buffer, messageLength);
-    message.size = messageLength;
 
-    status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, message.size, message.buffer, &message.size);
+    status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, messageLength, message.buffer, &messageLength);
+    message.size = messageLength;
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Key change failed");
         byte code = 0xAE;

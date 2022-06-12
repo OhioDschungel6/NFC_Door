@@ -36,14 +36,14 @@ boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
     // Send Auth command
     client.Send(&serverCommand, 1);
     byte kt = keyType;
-    client.Send(&kt,1);
+    client.Send(&kt, 1);
 
     //#Step 0: Get and send id
     client.Send(mfrc522->uid.uidByte, 7);
 
     Buffer<3> buffer;
     buffer.append24(applicationNr);
-    client.Send(buffer.buffer,3);
+    client.Send(buffer.buffer, 3);
 
     // Start Authentification
     MFRC522::StatusCode status;
@@ -62,7 +62,7 @@ boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
     }
     if (response[0] != DesfireStatusCode_ADDITIONAL_FRAME) {
         Serial.println("Desfire Auth failed");
-        dumpInfo(response,responseLength);
+        dumpInfo(response, responseLength);
         return false;
     }
 
@@ -81,27 +81,27 @@ boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
         return false;
     } else {
         if (response[0] == DesfireStatusCode_OPERATION_OK) {  // reply from PICC should start with 0x00
-            client.Send(&response[1], blockSize);                    // ek(RndA')
+            client.Send(&response[1], blockSize);             // ek(RndA')
             authType = keyType;
             authenticated = true;
             authkeyNr = keyNr;
-//            if (authType == KEYTYPE_2K3DES) {
-//                client.Recieve(sessionKey, 16);
-//                byte deskey[24];  // = {0x36 ,0xC4 ,0xF8 ,0xBE ,0x30 ,0x6E ,0x6C ,0x76 ,0xAC ,0x22 ,0x9E ,0x8C ,0xF8 ,0x24 ,0xBA ,0x30 ,0x32 ,0x50 ,0xD4 ,0xAA ,0x64 ,0x36 ,0x56 ,0xA2};
-//                memcpy(deskey, sessionKey, 16);
-//                memcpy(deskey + 16, sessionKey, 8);
-//                des.init(deskey, 0);
-//            } else if (authType == KEYTYPE_3DES) {
-//                client.Recieve(sessionKey, 24);
-//                byte deskey[24];  // = {0x36 ,0xC4 ,0xF8 ,0xBE ,0x30 ,0x6E ,0x6C ,0x76 ,0xAC ,0x22 ,0x9E ,0x8C ,0xF8 ,0x24 ,0xBA ,0x30 ,0x32 ,0x50 ,0xD4 ,0xAA ,0x64 ,0x36 ,0x56 ,0xA2};
-//                memcpy(deskey, sessionKey, 24);
-//                des.init(deskey, 0);
-//            } else if (authType == KEYTYPE_AES) {
-//                client.Recieve(sessionKey, 16);
-//                byte iv[16] = {0};
-//                aes.setIV(iv);
-//                aes.setKey(sessionKey, 128);
-//            }
+            // if (authType == KEYTYPE_2K3DES) {
+            //     client.Recieve(sessionKey, 16);
+            //     byte deskey[24];  // = {0x36 ,0xC4 ,0xF8 ,0xBE ,0x30 ,0x6E ,0x6C ,0x76 ,0xAC ,0x22 ,0x9E ,0x8C ,0xF8 ,0x24 ,0xBA ,0x30 ,0x32 ,0x50 ,0xD4 ,0xAA ,0x64 ,0x36 ,0x56 ,0xA2};
+            //     memcpy(deskey, sessionKey, 16);
+            //     memcpy(deskey + 16, sessionKey, 8);
+            //     des.init(deskey, 0);
+            // } else if (authType == KEYTYPE_3DES) {
+            //     client.Recieve(sessionKey, 24);
+            //     byte deskey[24];  // = {0x36 ,0xC4 ,0xF8 ,0xBE ,0x30 ,0x6E ,0x6C ,0x76 ,0xAC ,0x22 ,0x9E ,0x8C ,0xF8 ,0x24 ,0xBA ,0x30 ,0x32 ,0x50 ,0xD4 ,0xAA ,0x64 ,0x36 ,0x56 ,0xA2};
+            //     memcpy(deskey, sessionKey, 24);
+            //     des.init(deskey, 0);
+            // } else if (authType == KEYTYPE_AES) {
+            //     client.Recieve(sessionKey, 16);
+            //     byte iv[16] = {0};
+            //     aes.setIV(iv);
+            //     aes.setKey(sessionKey, 128);
+            // }
             Serial.println("Auth succesful");
             return true;
         } else {
@@ -120,7 +120,7 @@ boolean Desfire::SelectApplication(uint32_t appId) {
     message.append24(appId);
 
     byte response[32] = {0};
-    byte responseLength =32;
+    byte responseLength = 32;
     status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, message.size, response, &responseLength);
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Select App failed");
@@ -143,7 +143,7 @@ boolean Desfire::DeleteApplication(uint32_t appId) {
     message.append24(appId);
 
     byte response[32] = {0};
-    byte responseLength =32;
+    byte responseLength = 32;
     status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, message.size, response, &responseLength);
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Delete App failed");
@@ -154,8 +154,8 @@ boolean Desfire::DeleteApplication(uint32_t appId) {
         Serial.println("Delete App failed");
         return false;
     }
-    if(appId == applicationNr){
-        applicationNr= 0;
+    if (appId == applicationNr) {
+        applicationNr = 0;
     }
     Serial.println("App deleted");
     return true;
@@ -263,7 +263,7 @@ boolean Desfire::ChangeKey(byte key[], KeyType keyType, int keyNr) {
 
     MFRC522::StatusCode status;
     byte response[40] = {0};
-    byte responseLength =40;
+    byte responseLength = 40;
     status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, message.size, response, &responseLength);
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Key change failed");
@@ -282,36 +282,36 @@ boolean Desfire::ChangeKey(byte key[], KeyType keyType, int keyNr) {
     return true;
 }
 
-uint32_t Desfire::GetAppIdFromNetwork(){
+uint32_t Desfire::GetAppIdFromNetwork() {
     NetworkClient client;
     byte serverCommand = 0x6A;
-    client.Send(&serverCommand,1);
+    client.Send(&serverCommand, 1);
     client.Send(mfrc522->uid.uidByte, 7);
-    byte message [3] = {0};
-    client.Recieve(message,3);
-    uint32_t appId = 0;
-    appId |= message[0];
-    appId |= message[1]<<8;
-    appId |= message[2]<<16;
+    byte message[3] = {0};
+    client.Recieve(message, 3);
+    uint32_t appId = parseAppId(message);
     return appId;
 }
 
-boolean Desfire::ChangeKeyNetwork(KeyType keyType){
+boolean Desfire::ChangeKeyNetwork(KeyType keyType) {
     NetworkClient client;
     MFRC522::StatusCode status;
+
     byte serverCommand = 0xC4;
-    client.Send(&serverCommand,1);
-    byte kt = keyType;
-    client.Send(&kt,1);
-    client.Send(mfrc522->uid.uidByte, 7);
-    Buffer<255> message;
-    message.append24(applicationNr);
     String name = "Big A";
-    message.append((byte)name.length());
-    message.appendBuffer( (byte*)name.c_str(), (byte) name.length());
-    client.Send(message.buffer,message.size);
+
+    Buffer<255> message;
+    message.append(serverCommand);
+    message.append(keyType);
+    message.appendBuffer(mfrc522->uid.uidByte, 7);
+    message.append24(applicationNr);
+    message.append(name.length());
+    message.appendBuffer((byte*)name.c_str(), name.length());
+
+    client.Send(message.buffer, message.size);
+
     byte messageLength;
-    client.Recieve(&messageLength,1);
+    client.Recieve(&messageLength, 1);
     // TODO Check if messageLength > bufferLength
     client.Recieve(message.buffer, messageLength);
     message.size = messageLength;
@@ -320,19 +320,19 @@ boolean Desfire::ChangeKeyNetwork(KeyType keyType){
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Key change failed");
         byte code = 0xAE;
-        client.Send(&code,1);
+        client.Send(&code, 1);
         Serial.println(MFRC522::GetStatusCodeName(status));
         return false;
     }
     authenticated = false;
-    
+
+    client.Send(message.buffer, 1);
+
     if (message.buffer[0] != DesfireStatusCode_OPERATION_OK) {
         dumpInfo(message.buffer, message.size);
         Serial.println("Key change failed");
-        client.Send(message.buffer,1);
         return false;
     }
-    client.Send(message.buffer,1);
     return true;
 }
 

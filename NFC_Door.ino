@@ -43,11 +43,11 @@ void loop() {
                 RequestAuthUltralightCNetwork();
             } else if (mfrc522.uid.sak == 0x20) {
                 Serial.println("Desfire detected");
-                Desfire desfire = Desfire(&mfrc522);
-                uint32_t appId = desfire.GetAppIdFromNetwork();
+                Desfire desfire = Desfire(&mfrc522);            
 
                 boolean Reader = false;
                 if(Reader){
+                  uint32_t appId = desfire.GetAppIdFromNetwork();         
                   if( appId == 0){
                     return;
                   }
@@ -58,7 +58,39 @@ void loop() {
                      return;
                   }
                   Serial.println("Open door");
-                }
+               }
+               
+               boolean Writer = true;
+                if(Writer){
+                  KeySettings keySettings;
+                  if(!desfire.GetKeySettings(&keySettings)){
+                    return;
+                  }
+                  KeyType masterKeyType = keySettings.keyType;
+                  if( !desfire.AuthenticateNetwork(masterKeyType,0)){
+                    //TODO check if applications can be created
+                  } else{
+                    if(masterKeyType != KEYTYPE_AES){
+                      if(!desfire.ChangeKeyNetwork(KEYTYPE_AES)){
+                        // should not happen
+                      }
+                    }
+                    uint32_t appId = desfire.GetAppIdFromNetwork();         
+                    if( appId == 0){
+                      //Website neue Karte
+                    }else{
+                        if( !desfire.SelectApplication(appId)){
+                          //Should not happen
+                        }
+                        if( !desfire.AuthenticateNetwork(KEYTYPE_AES,0)){
+                           appId = 0;
+                        }else{
+                           //KartenName auf Website anzeigen;
+                        }
+                    }
+                  }
+                  //TODO Event write key from card
+               }
                 
                 
             } else {

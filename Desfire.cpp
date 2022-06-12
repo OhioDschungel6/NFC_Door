@@ -161,6 +161,31 @@ boolean Desfire::DeleteApplication(uint32_t appId) {
     return true;
 }
 
+boolean Desfire::GetKeySettings(KeySettings * keySettings) {
+    Serial.println("Get key settings");
+    MFRC522::StatusCode status;
+    Buffer<32> message;
+    message.append(DesfireCommand_GET_KEY_SETTINGS);
+    byte response[32] = {0};
+    byte responseLength =32;
+    status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, message.size, response, &responseLength);
+    if (status != MFRC522::STATUS_OK) {
+        Serial.println("Fetching key settings failed");
+        Serial.println(MFRC522::GetStatusCodeName(status));
+        return false;
+    }
+    if (response[0] != DesfireStatusCode_OPERATION_OK) {
+        Serial.println("Fetching key settings failed");
+        dumpInfo(response,responseLength);
+        return false;
+    }
+    keySettings->secSettings = response[1];
+    keySettings->keyCount = response[2] & 0x0F;
+    keySettings->keyType = (KeyType)(response[2] & 0xF0);
+    Serial.println("Key settings fetched");
+    return true;
+}
+
 boolean Desfire::FormatCard() {
     Serial.println("Format card");
     MFRC522::StatusCode status;
@@ -297,6 +322,7 @@ uint32_t Desfire::GetAppIdFromNetwork(){
 }
 
 boolean Desfire::ChangeKeyNetwork(KeyType keyType){
+    Serial.println("Change key network");
     NetworkClient client;
     MFRC522::StatusCode status;
     byte serverCommand = 0xC4;
@@ -333,6 +359,7 @@ boolean Desfire::ChangeKeyNetwork(KeyType keyType){
         return false;
     }
     client.Send(message.buffer,1);
+    Serial.println("Change key succesful");
     return true;
 }
 

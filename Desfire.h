@@ -11,6 +11,13 @@ enum KeyType : byte {
     KEYTYPE_3DES = 0x40,
     KEYTYPE_AES = 0x80,
 };
+
+struct KeySettings {
+  byte keyCount;
+  KeyType keyType;
+  byte secSettings;
+};
+
 class Desfire {
    public:
     Desfire(MFRC522Extended* mfrc522);
@@ -20,6 +27,7 @@ class Desfire {
     boolean SelectApplication(uint32_t appId);
     boolean CreateApplication(uint32_t appId, byte keyCount, KeyType keyType);
     boolean DeleteApplication(uint32_t appId);
+    boolean GetKeySettings(KeySettings* keySettings);
     boolean FormatCard();
     int GetAppIds(uint32_t appIds[], int maxLength);
     uint32_t GetAppIdFromNetwork();
@@ -35,6 +43,8 @@ class Desfire {
     AES32 aes = AES32();
     boolean EncryptDataframe(byte dataframe[], byte encDataframe[], int length);
 };
+
+
 enum DesfireStatusCode : byte {
     DesfireStatusCode_OPERATION_OK = 0x00,          /* successful operation */
     DesfireStatusCode_NO_CHANGES = 0x0C,            /* no changes done to backup files */
@@ -69,4 +79,5 @@ enum DesfireCommand : byte {
     DesfireCommand_FORMAT_CARD = 0xFC,  
     DesfireCommand_CHANGE_KEY = 0xC4,
     DesfireCommand_GET_APPLICATIONS = 0x6A,  
+    DesfireCommand_GET_KEY_SETTINGS = 0x45,  
 };

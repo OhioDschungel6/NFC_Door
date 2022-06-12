@@ -62,6 +62,7 @@ void loop() {
                
                boolean Writer = true;
                 if(Writer){
+                  uint32_t appId = 0;
                   KeySettings keySettings;
                   if(!desfire.GetKeySettings(&keySettings)){
                     return;
@@ -75,7 +76,7 @@ void loop() {
                         // should not happen
                       }
                     }
-                    uint32_t appId = desfire.GetAppIdFromNetwork();         
+                    appId = desfire.GetAppIdFromNetwork();         
                     if( appId == 0){
                       //Website neue Karte
                     }else{
@@ -90,8 +91,43 @@ void loop() {
                     }
                   }
                   //TODO Event write key from card
-               }
-                
+                  while(Serial.available()==0);
+                  char cmd = Serial.read();
+                  if(cmd == 'w'){
+                    if(appId == 0){
+                        uint32_t appIds[32];
+                        int length = desfire.GetAppIds(appIds, 32);
+                        if(length == -1){
+                          return;
+                        }
+                        if(length == 0){
+                          appId = 1;
+                        }else{
+                          appId = getNextFreeAppId(appIds, length);
+                        }
+                     
+                        Serial.println(appId);
+                        if(appId == 0 || appId > 0x00FFFFFF){
+                           return;
+                        }
+                        if( !desfire.CreateApplication(appId,1,KEYTYPE_AES)){
+                           return;
+                        }
+                    }
+                    if( !desfire.SelectApplication(appId)){
+                        return;
+                    }
+                    if( !desfire.AuthenticateNetwork(KEYTYPE_AES,0)){
+                       //Illegal state lol
+                        return;
+                    }
+                    if(!desfire.ChangeKeyNetwork(KEYTYPE_AES)){
+                        // should not happen
+                    }   
+                    Serial.println("Key changed: Card good to go");
+                    //Update website key geändert               
+                  }
+               }           
                 
             } else {
                 Serial.println(F("Other Card found, not compatible!"));
@@ -180,4 +216,29 @@ void RequestAuthUltralightCNetwork() {
             Serial.println(F("Wrong answer!!!"));
         }
     }
+}
+
+uint32_t getNextFreeAppId(uint32_t appIds[], int length){
+    qsort(appIds,length,sizeof(uint32_t),sort_asc);
+                        
+    if(appIds[0] != 1){
+      return 1;
+    }
+    for(int i=0;i<length-1;i++){
+      if(appIds[i] < appIds[i+1]-1){
+        return appIds[i]+1;
+      }
+    }
+    return appIds[length-1]+1;
+}
+
+int sort_asc(const void *cmp1, const void *cmp2)
+{
+  // Need to cast the void * to int *
+  int a = *((uint32_t *)cmp1);
+  int b = *((uint32_t *)cmp2);
+  // The comparison
+  return a < b ? -1 : (a > b ? 1 : 0);
+  // A simpler, probably faster way:
+  //return b - a;
 }

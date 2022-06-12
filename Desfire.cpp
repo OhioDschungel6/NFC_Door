@@ -164,7 +164,7 @@ boolean Desfire::DeleteApplication(uint32_t appId) {
 boolean Desfire::GetKeySettings(KeySettings* keySettings) {
     Serial.println("Get key settings");
     MFRC522::StatusCode status;
-    Buffer<32> message;
+    Buffer<5> message;
     message.append(DesfireCommand_GET_KEY_SETTINGS);
     byte response[32] = {0};
     byte responseLength = 32;
@@ -179,6 +179,7 @@ boolean Desfire::GetKeySettings(KeySettings* keySettings) {
         dumpInfo(response, responseLength);
         return false;
     }
+    dumpInfo(response,responseLength);
     keySettings->secSettings = response[1];
     keySettings->keyCount = response[2] & 0x0F;
     keySettings->keyType = (KeyType)(response[2] & 0xF0);
@@ -373,12 +374,12 @@ int Desfire::GetAppIds(uint32_t appIds[], int maxLength) {
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Retrieving App Ids failed");
         Serial.println(MFRC522::GetStatusCodeName(status));
-        return false;
+        return -1;
     }
     if (message[0] != DesfireStatusCode_OPERATION_OK && message[0] != DesfireStatusCode_ADDITIONAL_FRAME) {
         Serial.println("Retrieving App Ids failed");
         dumpInfo(message, messageLength);
-        return ids;
+        return -1;
     }
     for (int i = 1; i <= messageLength - 3; i += 3) {
         appIds[ids++] = parseAppId(&message[i]);
@@ -392,12 +393,12 @@ int Desfire::GetAppIds(uint32_t appIds[], int maxLength) {
         if (status != MFRC522::STATUS_OK) {
             Serial.println("Retrieving App Ids failed");
             Serial.println(MFRC522::GetStatusCodeName(status));
-            return ids;
+            return -1;
         }
         if (message[0] != DesfireStatusCode_OPERATION_OK && message[0] != DesfireStatusCode_ADDITIONAL_FRAME) {
             Serial.println("Retrieving App Ids failed");
             dumpInfo(message, messageLength);
-            return ids;
+            return -1;
         }
         for (int i = 1; i <= messageLength - 3; i += 3) {
             appIds[ids++] = parseAppId(&message[i]);

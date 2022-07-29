@@ -129,6 +129,7 @@ boolean Desfire::SelectApplication(uint32_t appId) {
     }
     if (response[0] != DesfireStatusCode_OPERATION_OK) {
         Serial.println("Select App failed");
+        dumpInfo(response,responseLength);
         return false;
     }
     applicationNr = appId;

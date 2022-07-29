@@ -2,13 +2,15 @@
 #include <Arduino.h>
 #include <MFRC522Extended.h>
 #include <SPI.h>
-#include "NetworkManager.h"
-#include "Utils.h"
+
+#include "Android.h"
 #include "Desfire.h"
 #include "NetworkClient.h"
+#include "NetworkManager.h"
+#include "Utils.h"
 
-#define RST_PIN 21 
-#define SS_PIN 5 
+#define RST_PIN 21
+#define SS_PIN 5
 
 NetworkManager networkManager;
 MFRC522Extended mfrc522(SS_PIN, RST_PIN);  // Create MFRC522 instance
@@ -16,13 +18,13 @@ MFRC522::StatusCode status;
 
 boolean isPresent = false;
 
-
 void setup() {
     Serial.begin(115200);
-    while (!Serial) ;
-    networkManager.Setup();
-    SPI.begin();        
-    mfrc522.PCD_Init();  
+    while (!Serial)
+        ;
+    //networkManager.Setup();
+    SPI.begin();
+    mfrc522.PCD_Init();
     Serial.println(F("Setup ready"));
 }
 
@@ -40,95 +42,74 @@ void loop() {
             isPresent = true;
             if (mfrc522.uid.sak == 0x00) {
                 Serial.println("Ultralight detected");
-                RequestAuthUltralightCNetwork();
+                //RequestAuthUltralightCNetwork();
             } else if (mfrc522.uid.sak == 0x20) {
                 Serial.println("Desfire detected");
-                Desfire desfire = Desfire(&mfrc522);            
+                Desfire desfire = Desfire(&mfrc522);
+
+                boolean AndroidBool = true;
+                if (AndroidBool) {
+                    Android android = Android(&mfrc522);
+                    Buffer<7> buffer;
+                    byte aid[] = {0xF0, 0x39, 0x41, 0x45, 0x32, 0x81, 0x00};
+                    buffer.appendBuffer(aid, 7);
+
+                    if (!android.SelectApplication(buffer)) {
+                        Serial.println("Android Error");
+                        return;
+                    }
+                    if(!android.Verify()){
+                      return;
+                    }
+                    Serial.println("Nice");
+                }
 
                 boolean Reader = false;
-                if(Reader){
-                  uint32_t appId = desfire.GetAppIdFromNetwork();         
-                  if( appId == 0){
-                    return;
-                  }
-                  if( !desfire.SelectApplication(appId)){
-                     return;
-                  }
-                  if( !desfire.AuthenticateNetwork(KEYTYPE_AES,0)){
-                     return;
-                  }
-                  Serial.println("Open door");
-               }
-               
-               boolean Writer = true;
-                if(Writer){
-                  uint32_t appId = 0;
-                  KeySettings keySettings;
-                  if(!desfire.GetKeySettings(&keySettings)){
-                    return;
-                  }
-                  KeyType masterKeyType = keySettings.keyType;
-                  if( !desfire.AuthenticateNetwork(masterKeyType,0)){
-                    //TODO check if applications can be created
-                  } else{
-                    if(masterKeyType != KEYTYPE_AES){
-                      if(!desfire.ChangeKeyNetwork(KEYTYPE_AES)){
-                        // should not happen
-                      }
-                    }
-                    appId = desfire.GetAppIdFromNetwork();         
-                    if( appId == 0){
-                      //Website neue Karte
-                    }else{
-                        if( !desfire.SelectApplication(appId)){
-                          //Should not happen
-                        }
-                        if( !desfire.AuthenticateNetwork(KEYTYPE_AES,0)){
-                           appId = 0;
-                        }else{
-                           //KartenName auf Website anzeigen;
-                        }
-                    }
-                  }
-                  //TODO Event write key from card
-                  while(Serial.available()==0);
-                  char cmd = Serial.read();
-                  if(cmd == 'w'){
-                    if(appId == 0){
-                        uint32_t appIds[32];
-                        int length = desfire.GetAppIds(appIds, 32);
-                        if(length == -1){
-                          return;
-                        }
-                        if(length == 0){
-                          appId = 1;
-                        }else{
-                          appId = getNextFreeAppId(appIds, length);
-                        }
-                     
-                        Serial.println(appId);
-                        if(appId == 0 || appId > 0x00FFFFFF){
-                           return;
-                        }
-                        if( !desfire.CreateApplication(appId,1,KEYTYPE_AES)){
-                           return;
-                        }
-                    }
-                    if( !desfire.SelectApplication(appId)){
+                if (Reader) {
+                    uint32_t appId = desfire.GetAppIdFromNetwork();
+                    if (appId == 0) {
                         return;
                     }
-                    if( !desfire.AuthenticateNetwork(KEYTYPE_AES,0)){
-                       //Illegal state lol
+                    if (!desfire.SelectApplication(appId)) {
                         return;
                     }
-                    if(!desfire.ChangeKeyNetwork(KEYTYPE_AES)){
-                        // should not happen
-                    }   
-                    Serial.println("Key changed: Card good to go");
-                    //Update website key geändert               
-                  }
-               }           
-                
+                    if (!desfire.AuthenticateNetwork(KEYTYPE_AES, 0)) {
+                        return;
+                    }
+                    Serial.println("Open door");
+                }
+
+                boolean Writer = false;
+                if (Writer) {
+                    uint32_t appId = 0;
+                    KeySettings keySettings;
+                    if (!desfire.GetKeySettings(&keySettings)) {
+                        return;
+                    }
+                    KeyType masterKeyType = keySettings.keyType;
+                    if (!desfire.AuthenticateNetwork(masterKeyType, 0)) {
+                        //TODO check if applications can be created
+                    } else {
+                        if (masterKeyType != KEYTYPE_AES) {
+                            if (!desfire.ChangeKeyNetwork(KEYTYPE_AES)) {
+                                // should not happen
+                            }
+                        }
+                        appId = desfire.GetAppIdFromNetwork();
+                        if (appId == 0) {
+                            //Website neue Karte
+                        } else {
+                            if (!desfire.SelectApplication(appId)) {
+                                //Should not happen
+                            }
+                            if (!desfire.AuthenticateNetwork(KEYTYPE_AES, 0)) {
+                                appId = 0;
+                            } else {
+                                //KartenName auf Website anzeigen;
+                            }
+                        }
+                    }
+                }
             } else {
                 Serial.println(F("Other Card found, not compatible!"));
                 mfrc522.PICC_HaltA();
@@ -138,7 +119,7 @@ void loop() {
         }
     }
     if (isPresent) {  // test read - it it fails, the PICC is most likely gone
-        byte buffer [20] = {0};
+        byte buffer[20] = {0};
         byte byteCount = sizeof(buffer);
         status = mfrc522.MIFARE_Read(0, buffer, &byteCount);
         if (status != MFRC522::STATUS_OK) {
@@ -218,27 +199,26 @@ void RequestAuthUltralightCNetwork() {
     }
 }
 
-uint32_t getNextFreeAppId(uint32_t appIds[], int length){
-    qsort(appIds,length,sizeof(uint32_t),sort_asc);
-                        
-    if(appIds[0] != 1){
-      return 1;
+uint32_t getNextFreeAppId(uint32_t appIds[], int length) {
+    qsort(appIds, length, sizeof(uint32_t), sort_asc);
+
+    if (appIds[0] != 1) {
+        return 1;
     }
-    for(int i=0;i<length-1;i++){
-      if(appIds[i] < appIds[i+1]-1){
-        return appIds[i]+1;
-      }
+    for (int i = 0; i < length - 1; i++) {
+        if (appIds[i] < appIds[i + 1] - 1) {
+            return appIds[i] + 1;
+        }
     }
-    return appIds[length-1]+1;
+    return appIds[length - 1] + 1;
 }
 
-int sort_asc(const void *cmp1, const void *cmp2)
-{
-  // Need to cast the void * to int *
-  int a = *((uint32_t *)cmp1);
-  int b = *((uint32_t *)cmp2);
-  // The comparison
-  return a < b ? -1 : (a > b ? 1 : 0);
-  // A simpler, probably faster way:
-  //return b - a;
+int sort_asc(const void *cmp1, const void *cmp2) {
+    // Need to cast the void * to int *
+    int a = *((uint32_t *)cmp1);
+    int b = *((uint32_t *)cmp2);
+    // The comparison
+    return a < b ? -1 : (a > b ? 1 : 0);
+    // A simpler, probably faster way:
+    //return b - a;
 }

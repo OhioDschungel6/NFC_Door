@@ -6,12 +6,15 @@
 
 class Android {
    public:
-    Android(MFRC522Extended* mfrc522);
+    Android(MFRC522Extended* mfrc522, String ip);
     boolean SelectApplication(Buffer<7> aid);
     boolean Verify();
+    boolean GetKey();
 
    private:
     MFRC522Extended* mfrc522;
+    String ip;
+    byte currentUid[16];
 };
 
 enum AndroidCommand : byte {

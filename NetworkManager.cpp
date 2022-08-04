@@ -99,7 +99,8 @@ void NetworkManager::Setup() {
     wifiManager.setSaveConfigCallback(saveConfigCallback);
 
     //-- Double-Reset --
-    if (drd.detectDoubleReset()) {
+    //if (drd.detectDoubleReset()) {
+    if(false){
         Serial.println("Double Reset Detected");
 
         wifiManager.startConfigPortal(wifiManagerAPName, wifiManagerAPPassword);

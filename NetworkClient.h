@@ -4,7 +4,7 @@
 
 class NetworkClient {
    public:
-    NetworkClient();
+    NetworkClient(String ip);
     void Send(byte[], int);
     int Recieve(byte[], int);
 

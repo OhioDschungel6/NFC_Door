@@ -4,19 +4,19 @@
 
 // String host = "192.168.178.22";
 // Regensburg
-IPAddress host(192, 168, 178, 22);
+//IPAddress host(192, 168, 178, 22);
 // Bruck
-// IPAddress host(192,168,179,85);
+//IPAddress host(192,168,179,85);
 unsigned int port = 80;
 
 void dumpInfo(byte *ar, int len);
 
-NetworkClient::NetworkClient() {
+NetworkClient::NetworkClient(String ip) {
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println("Wifi not available");
         return;
     }
-    if (!client.connect(host, port)) {
+    if (!client.connect(ip.c_str(), port)) {
         // Error;
     }
 }

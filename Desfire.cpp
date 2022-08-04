@@ -7,8 +7,9 @@ int getBlockSize(KeyType keyType);
 int getAuthBlockSize(KeyType keyType);
 byte getAuthMode(KeyType keyType);
 
-Desfire::Desfire(MFRC522Extended* mfrc522) {
+Desfire::Desfire(MFRC522Extended* mfrc522,String ip) {
     this->mfrc522 = mfrc522;
+    this->ip = ip;
 }
 
 boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
@@ -25,7 +26,7 @@ boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
             // Not implemented
             return false;
     }
-    NetworkClient client;
+    NetworkClient client(ip);
     Buffer<64> message;
     byte response[64] = {0};
     byte responseLength = 64;
@@ -310,7 +311,7 @@ boolean Desfire::ChangeKey(byte key[], KeyType keyType, int keyNr) {
 }
 
 uint32_t Desfire::GetAppIdFromNetwork() {
-    NetworkClient client;
+    NetworkClient client(ip);
     byte serverCommand = 0x6A;
     client.Send(&serverCommand, 1);
     client.Send(mfrc522->uid.uidByte, 7);
@@ -322,7 +323,7 @@ uint32_t Desfire::GetAppIdFromNetwork() {
 
 boolean Desfire::ChangeKeyNetwork(KeyType keyType) {
     Serial.println("Change key network");
-    NetworkClient client;
+    NetworkClient client(ip);
     MFRC522::StatusCode status;
 
     byte serverCommand = 0xC4;

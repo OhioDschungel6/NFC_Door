@@ -7,3 +7,9 @@
     - -> Server: Authenticate AES, UID, AppId
     - wenn erfolgreich:
         - Tür öffnen
+- Event: Handy aufgelegt
+    - -> Server: VerifyAndroid UID
+    - <- Server: "zufällige Daten"
+    - -> Server: Länge, signiert("zufällige Daten")
+    - wenn erfolgreich:
+        - Tür öffnen

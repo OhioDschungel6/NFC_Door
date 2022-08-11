@@ -33,3 +33,10 @@
             - return
         - -> Server: ChangeKey AES, UID, AppId        
         - Website: Key geändert
+- Event: Android-Handy aufgelegt:
+    - -> Server: ist UID bekannt
+    - <- Server: Name oder unbekannt
+    - Website aktualisieren (Textfeld für Device-Name: editierbar)
+    - Event: Handy hinzufügen/ändern (Button)
+        - -> Server: AddPhone UID, Länge Name, Name, Länge PK, PK
+        - <- Server: erfolgreich ja/nein

@@ -23,7 +23,7 @@ class Desfire {
     Desfire(MFRC522Extended* mfrc522,String ip);
     boolean AuthenticateNetwork(KeyType keyType, int keyNr);
     boolean ChangeKey(byte key[], KeyType keyType, int keyNr);
-    boolean ChangeKeyNetwork(KeyType keyType);
+    boolean ChangeKeyNetwork(KeyType keyType,String name, const unsigned char presharedKey[]);
     boolean SelectApplication(uint32_t appId);
     boolean CreateApplication(uint32_t appId, byte keyCount, KeyType keyType);
     boolean DeleteApplication(uint32_t appId);

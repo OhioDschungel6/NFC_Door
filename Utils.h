@@ -2,6 +2,7 @@
 #include <Arduino.h>
 
 void dumpInfo(byte*, int);
+void hex2bin(const char* src, byte* target);
 
 uint32_t parseAppId(const byte* buffer);
 

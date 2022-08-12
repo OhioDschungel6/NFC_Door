@@ -1,14 +1,12 @@
 #include "Android.h"
 #include "mbedtls/md.h"
 
-String presharedKey = "secretKey";
-
 Android::Android(MFRC522Extended* mfrc522,String ip) {
     this->mfrc522 = mfrc522;
     this->ip = ip;
 }
 
-boolean Android::SelectApplication(Buffer<7> aid){
+boolean Android::SelectApplication(byte aid[7]){
     Serial.println("Select Application Android");
     MFRC522::StatusCode status;
     Buffer<32> message;
@@ -17,10 +15,9 @@ boolean Android::SelectApplication(Buffer<7> aid){
     message.append(0x04);
     message.append(0x00);
     message.append(0x07);
-    message.appendBuffer(aid.buffer,aid.size);
+    message.appendBuffer(aid,7);
     message.append(0x00);
     
-
     dumpInfo(message.buffer,message.size);
     byte response[32] = {0};
     byte responseLength = 32;
@@ -65,7 +62,10 @@ boolean Android::Verify(){
     return true;
 }
 
-boolean Android::GetKey(){
+boolean Android::GetKey(String name, const unsigned char presharedKey[16]){
+    if(name.length() >= 50){
+      return false;
+    }
     Serial.println("GetKey Android");
     MFRC522::StatusCode status;
     byte cmd = 0x56;
@@ -84,6 +84,9 @@ boolean Android::GetKey(){
     NetworkClient client(ip);
     client.Send(&cmd,1);
     client.Send(currentUid,16);
+    byte nameLength = (byte) name.length();
+    client.Send(&nameLength,1);
+    client.Send((byte*)name.c_str(),(byte)name.length());
     client.Send(&responseLength,1);
     client.Send(response,responseLength);
 
@@ -93,7 +96,7 @@ boolean Android::GetKey(){
     mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
     mbedtls_md_init(&ctx);
     mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 1);
-    mbedtls_md_hmac_starts(&ctx, (const unsigned char *) presharedKey.c_str(), presharedKey.length());
+    mbedtls_md_hmac_starts(&ctx, (const unsigned char *) presharedKey, 16);
     mbedtls_md_hmac_update(&ctx, (const unsigned char *) response, responseLength);
     mbedtls_md_hmac_finish(&ctx, hmacResult);
     mbedtls_md_free(&ctx);
@@ -101,4 +104,20 @@ boolean Android::GetKey(){
     
     Serial.println("Get Key end");
     return true;
+}
+
+boolean Android::CheckIsAvailable(){
+    byte cmd = 0xCA;
+    byte responseLength;
+    MFRC522::StatusCode status;
+    status = mfrc522->TCL_Transceive(&mfrc522->tag, &cmd, 1, &cmd, &responseLength);
+    if (status != MFRC522::STATUS_OK) {
+        return false;
+    }
+    if(cmd == 0x1A){
+      return true;
+    }else{
+      return false;
+    }
+    
 }

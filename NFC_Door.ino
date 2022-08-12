@@ -9,6 +9,13 @@
 #include "NetworkManager.h"
 #include "Utils.h"
 
+//Libraries Webserver
+#include "ArduinoJson.h"
+#include "AsyncJson.h"
+#include "ESPAsyncWebServer.h"
+#include "SPIFFS.h"
+#include "WiFi.h"
+
 #define RST_PIN 21
 #define SS_PIN 5
 
@@ -18,9 +25,12 @@ MFRC522::StatusCode status;
 
 boolean isPresent = false;
 String ip;
+AsyncWebServer server(80);
 
-boolean Reader = true;
-boolean Writer = false;
+boolean Reader = false;
+boolean Writer = true;
+
+const unsigned char *presharedKey = (const unsigned char *)"secretKey1234567";
 
 void setup() {
   Serial.begin(115200);
@@ -30,10 +40,10 @@ void setup() {
   SPI.begin();
 
   findServerIP();
-  if(Writer){
+  if (Writer) {
     startWebServer();
   }
-  
+
   mfrc522.PCD_Init();
   Serial.println(F("Setup ready"));
 }
@@ -41,7 +51,7 @@ void setup() {
 void findServerIP() {
   byte buffer[255] = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: \"ssdp:discover\"\r\nMX: 1\r\nST: doorserver";
   WiFiUDP udp;
-  const char * udpAddress = "239.255.255.250";
+  const char *udpAddress = "239.255.255.250";
   const int udpPort = 1900;
   udp.beginPacket(udpAddress, udpPort);
 
@@ -52,8 +62,8 @@ void findServerIP() {
   bool gotIp = false;
   while (!gotIp) {
     udp.read(buffer, size);
-    String answer = String( (char *)buffer);
-    if(answer.indexOf("home-key-pro-door-opener") == -1){
+    String answer = String((char *)buffer);
+    if (answer.indexOf("home-key-pro-door-opener") == -1) {
       Serial.println("Continue search");
       Serial.println(answer);
       continue;
@@ -75,15 +85,222 @@ void findServerIP() {
     Serial.println("Server ip is:");
     Serial.println(ip);
   }
-
 }
 
-void startWebServer(){
-  
+void startWebServer() {
+  // Initialize SPIFFS
+  if (!SPIFFS.begin(true)) {
+    Serial.println("An Error has occurred while mounting SPIFFS");
+    return;
+  }
+  // Print ESP32 Local IP Address
+  Serial.println(WiFi.localIP());
+
+  // Route for root / web page
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
+    Serial.println("Delivering default page");
+    request->send(SPIFFS, "/index.html", String(), false);
+  });
+  server.on("/new", HTTP_GET, [](AsyncWebServerRequest * request) {
+    request->send(SPIFFS, "/index.html", String(), false);
+  });
+  server.on("/chipFound", HTTP_GET, [](AsyncWebServerRequest * request) {
+    request->send(SPIFFS, "/index.html", String(), false);
+  });
+  server.on("/overview", HTTP_GET, [](AsyncWebServerRequest * request) {
+    request->send(SPIFFS, "/index.html", String(), false);
+  });
+  server.on("/api/chips", HTTP_GET, [](AsyncWebServerRequest * request) {
+    AsyncResponseStream *response = request->beginResponseStream("application/json");
+    NetworkClient client(ip);
+    byte cmd = 0x6D;
+    client.Send(&cmd, 1);
+    int length;
+    client.Recieve((byte*)&length, 4);
+    byte* devicesJson = new byte[length];
+    client.Recieve(devicesJson, length);
+    response->write(devicesJson, length);
+    request->send(response);
+    delete[] devicesJson;
+  });
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
+    request->send(SPIFFS, "/index.html", String(), false);
+  });
+  server.on("/new", HTTP_GET, [](AsyncWebServerRequest * request) {
+    request->send(SPIFFS, "/index.html", String(), false);
+  });
+  server.on("/chipSearch", HTTP_GET, [](AsyncWebServerRequest * request) {
+    request->send(SPIFFS, "/index.html", String(), false);
+  });
+  server.on("/chipFound", HTTP_GET, [](AsyncWebServerRequest * request) {
+    request->send(SPIFFS, "/index.html", String(), false);
+  });
+  server.on("/overview", HTTP_GET, [](AsyncWebServerRequest * request) {
+    request->send(SPIFFS, "/index.html", String(), false);
+  });
+
+  server.serveStatic("/static/", SPIFFS, "/static/");
+  server.serveStatic("/fs/", SPIFFS, "/fs/");
+
+  server.onRequestBody([](AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total) {
+    if (request->url() == "/api/chip") {
+      if (request->method() == HTTP_POST) {
+        DynamicJsonBuffer jsonBuffer;
+        JsonObject &root = jsonBuffer.parseObject((const char *)data);
+        if (root.success()) {
+          if (root.containsKey("name")) {
+            if (registerDevice(root["name"].asString())) {
+              request->send(200);
+              return;
+            }
+          }
+        }
+        request->send(201);
+        return;
+      } else if (request->method() == HTTP_DELETE) {
+        DynamicJsonBuffer jsonBuffer;
+        JsonObject &root = jsonBuffer.parseObject((const char *)data);
+        if (root.success()) {
+          if (root.containsKey("uid")) {
+            String hexStringUid = root["uid"].asString();
+            byte uid[16];
+            hex2bin(hexStringUid.c_str(), uid);
+            deleteDevice(uid);
+            request->send(200);
+            return;
+          }
+        }
+        request->send(201);
+        return;
+      }
+    }
+    request->send(404);
+  });
+
+  Serial.println("Starting server NOW...");
+  // Start server
+  server.begin();
 }
 
+void deleteDevice(byte uid[]) {
+  NetworkClient client(ip);
+  byte cmd = 0xDD;
+  client.Send(&cmd, 1);
+  byte ekNonce [16];
+  byte nonce[17];
+  client.Recieve(ekNonce, 16);
+  AES32 sharedKeyDecryptor;
+  sharedKeyDecryptor.setKey(presharedKey, 128);
+  byte iv [16] = {0};
+  sharedKeyDecryptor.setIV(iv);
+  sharedKeyDecryptor.decryptCBC(16, ekNonce, nonce + 1);
+  dumpInfo(nonce+1,16);
+  nonce[0] = nonce[16];
+
+  AES32 sharedKeyEncryptor;
+  sharedKeyEncryptor.setKey(presharedKey, 128);
+  sharedKeyEncryptor.setIV(iv);
+
+  byte msg[32];
+  memcpy(msg, nonce, 16);
+  memcpy(msg + 16, uid, 16);
+
+  byte msgEnc[32];
+  sharedKeyEncryptor.encryptCBC(32, msg, msgEnc);
+  client.Send(msgEnc, 32);
+}
+
+boolean registerDevice(String name) {
+  if (name.length() == 0) {
+    return false;
+  }
+  if (!mfrc522.PICC_IsNewCardPresent()) {
+    return false;
+  }
+  // Select one of the cards
+  if (!mfrc522.PICC_ReadCardSerial()) {
+    return false;
+  }
+  if (mfrc522.uid.sak != 0x20) {
+    Serial.println("Non compatible card found");
+    mfrc522.PICC_HaltA();
+    return false;
+  }
+  if (mfrc522.uid.size == 4) {
+    Serial.println("Android detected");
+    return registerAndroidDevice(name);
+  } else if (mfrc522.uid.size == 7) {
+    Serial.println("Desfire detected");
+    return registerDesfireDevice(name);
+  }
+  return false;
+}
+
+boolean registerAndroidDevice(String name) {
+  Android android = Android(&mfrc522, ip);
+  byte aid[] = {0xF0, 0x39, 0x41, 0x45, 0x32, 0x81, 0x00};
+  if (!android.SelectApplication(aid)) {
+    Serial.println("Android Error");
+    return false;
+  }
+  return android.GetKey(name, presharedKey);
+}
+
+boolean registerDesfireDevice(String name) {
+  Desfire desfire = Desfire(&mfrc522, ip);
+  uint32_t appId = 0;
+  KeySettings keySettings;
+  if (!desfire.GetKeySettings(&keySettings)) {
+    return false;
+  }
+  KeyType masterKeyType = keySettings.keyType;
+  if (!desfire.AuthenticateNetwork(masterKeyType, 0)) {
+    //Could not authentificate against masterkey
+    //TODO check if applications can be created
+    Serial.println("Bad state");
+    return false;
+  }
+  if (masterKeyType != KEYTYPE_AES) {
+    //Change masterkeytype to AES
+    if (!desfire.ChangeKeyNetwork(KEYTYPE_AES, name, presharedKey)) {
+      // should not happen
+      return false;
+    }
+  }
+  //TODO Change key if default key, even if default key is AES
+  appId = desfire.GetAppIdFromNetwork();
+  if (appId == 0) {
+    //Card is unknown to server
+    uint32_t appIds[32];
+    int anz_ids = desfire.GetAppIds(appIds, 32);
+    uint32_t nextAppID = getNextFreeAppId(appIds, anz_ids);
+    if (!desfire.CreateApplication(nextAppID, 1, KEYTYPE_AES)) {
+      Serial.println("Create app failed");
+      return false;
+    }
+    if (!desfire.SelectApplication(nextAppID)) {
+      Serial.println("Select app failed");
+      return false;
+    }
+    if (!desfire.AuthenticateNetwork(KEYTYPE_AES, 0)) {
+      Serial.println("Auth failed");
+      return false;
+    }
+    //Register card on server
+    return desfire.ChangeKeyNetwork(KEYTYPE_AES, name, presharedKey);
+  } else {
+    //Card already known to server
+    if (!desfire.SelectApplication(appId)) {
+      return false;
+    }
+    return desfire.AuthenticateNetwork(KEYTYPE_AES, 0);
+  }
+}
 
 void loop() {
+  if (!Reader) {
+    return;
+  }
   if (!isPresent) {
     if (!mfrc522.PICC_IsNewCardPresent()) {
       return;
@@ -92,111 +309,43 @@ void loop() {
     // Select one of the cards
     if (!mfrc522.PICC_ReadCardSerial()) {
       return;
-    } else {
-      isPresent = true;
-      if (mfrc522.uid.sak == 0x00) {
-        Serial.println("Ultralight detected");
-        //RequestAuthUltralightCNetwork();
-      } else if (mfrc522.uid.sak == 0x20) {
-        if (mfrc522.uid.size == 4) {
-          Serial.println("Android detected");
-          Android android = Android(&mfrc522, ip);
-          Buffer<7> buffer;
-          byte aid[] = {0xF0, 0x39, 0x41, 0x45, 0x32, 0x81, 0x00};
-          buffer.appendBuffer(aid, 7);
-          if (!android.SelectApplication(buffer)) {
-            Serial.println("Android Error");
-            return;
-          }
-          if (Reader) {
-            if (!android.Verify()) {
-              return;
-            }
-          }
-          if (Writer) {
-            if (!android.GetKey()) {
-              return;
-            }
-          }
-        } else if (mfrc522.uid.size == 7) {
-          Serial.println("Desfire detected");
-          Desfire desfire = Desfire(&mfrc522, ip);
-          if (Reader) {
-            uint32_t appId = desfire.GetAppIdFromNetwork();
-            if (appId == 0) {
-              return;
-            }
-            if (!desfire.SelectApplication(appId)) {
-              return;
-            }
-            if (!desfire.AuthenticateNetwork(KEYTYPE_AES, 0)) {
-              return;
-            }
-            Serial.println("Open door");
-          }
-          if (Writer) {
-            uint32_t appId = 0;
-            KeySettings keySettings;
-            if (!desfire.GetKeySettings(&keySettings)) {
-              return;
-            }
-            KeyType masterKeyType = keySettings.keyType;
-            if (!desfire.AuthenticateNetwork(masterKeyType, 0)) {
-              //TODO check if applications can be created
-              Serial.println("Bad state");
-            } else {
-              if (masterKeyType != KEYTYPE_AES) {
-                if (!desfire.ChangeKeyNetwork(KEYTYPE_AES)) {
-                  // should not happen
-                }
-              }
-              appId = desfire.GetAppIdFromNetwork();
-              if (appId == 0) {
-                //Website neue Karte
-
-                //TEST CODE
-                uint32_t appIds[32];
-                int anz_ids = desfire.GetAppIds(appIds, 32);
-
-                uint32_t nextAppID = getNextFreeAppId(appIds, anz_ids);
-                if (!desfire.CreateApplication(nextAppID, 1, KEYTYPE_AES)) {
-                  Serial.println("Create app failed");
-                  return;
-                }
-                if (!desfire.SelectApplication(nextAppID)) {
-                  Serial.println("Select app failed");
-                  return;
-                }
-                if (!desfire.AuthenticateNetwork(KEYTYPE_AES, 0)) {
-                  Serial.println("Auth failed here failed");
-                  return;
-                }
-                if (!desfire.ChangeKeyNetwork(KEYTYPE_AES)) {
-                  Serial.println("Change key here failed");
-                  return;
-                }
-                //TEST CODE
-
-
-              } else {
-                if (!desfire.SelectApplication(appId)) {
-                  //Should not happen
-                }
-                if (!desfire.AuthenticateNetwork(KEYTYPE_AES, 0)) {
-                  appId = 0;
-                } else {
-                  //KartenName auf Website anzeigen;
-                }
-              }
-            }
-          }
-        }
-      } else {
-        Serial.println(F("Other Card found, not compatible!"));
-        mfrc522.PICC_HaltA();
-        isPresent = false;
+    }
+    if (mfrc522.uid.sak != 0x20) {
+      return;
+    }
+    isPresent = true;
+    if (mfrc522.uid.size == 4) {
+      Serial.println("Android detected");
+      Android android = Android(&mfrc522, ip);
+      Buffer<7> buffer;
+      byte aid[] = {0xF0, 0x39, 0x41, 0x45, 0x32, 0x81, 0x00};
+      if (!android.SelectApplication(aid)) {
+        Serial.println("Select failed");
         return;
       }
+      if (!android.Verify()) {
+        Serial.println("Verify failed");
+        return;
+      }
+    } else if (mfrc522.uid.size == 7) {
+      Serial.println("Desfire detected");
+      Desfire desfire = Desfire(&mfrc522, ip);
+      uint32_t appId = desfire.GetAppIdFromNetwork();
+      if (appId == 0) {
+        //Card unknown
+        return;
+      }
+      if (!desfire.SelectApplication(appId)) {
+        return;
+      }
+      if (!desfire.AuthenticateNetwork(KEYTYPE_AES, 0)) {
+        return;
+      }
+    } else {
+      Serial.println(F("Other Card found, not compatible!"));
+      mfrc522.PICC_HaltA();
+      isPresent = false;
+      return;
     }
   }
   if (isPresent) {  // test read - it it fails, the PICC is most likely gone
@@ -208,74 +357,6 @@ void loop() {
       mfrc522.PCD_StopCrypto1();
       Serial.println("Card gone...");
       return;
-    }
-  }
-}
-
-void RequestAuthUltralightCNetwork() {
-  Serial.println("Ultralight Auth");
-
-  NetworkClient client(ip);
-  byte AuthBuffer[24] = {0};  //
-  byte AuthLength = 24;
-  byte message[24] = {0};  // Message to transfer
-
-  byte deviceCode[1] = {0};
-  client.Send(deviceCode, 1);
-
-  //#Step 0: Get and send id
-  client.Send(mfrc522.uid.uidByte, 7);
-  // Start Authentification
-  // Step - 1
-  //  Build command buffer
-  AuthBuffer[0] = 0x1A;  // CMD_3DES_AUTH -> Ultralight C 3DES Authentication.
-  AuthBuffer[1] = 0x00;  //
-
-  // Calculate CRC_A
-  status = mfrc522.PCD_CalculateCRC(AuthBuffer, 2, &AuthBuffer[2]);
-  if (status != MFRC522::STATUS_OK) {
-    return;
-  }
-
-  AuthLength = sizeof(AuthBuffer);
-
-  // Transmit the buffer and receive the response, validate CRC_A.
-  // Step - 2
-  status = mfrc522.PCD_TransceiveData(AuthBuffer, 4, AuthBuffer, &AuthLength, nullptr, 0, true);
-  if (status != MFRC522::STATUS_OK) {
-    Serial.println("Ultralight C Auth failed");
-    Serial.println(MFRC522::GetStatusCodeName(status));
-    Serial.print(F("Reply: "));
-    dumpInfo(AuthBuffer, AuthLength);
-    return;
-  }
-  memcpy(message, AuthBuffer + 1, 8);  // copy the enc(RndB) from the message
-  // Step - 3
-  client.Send(message, 8);  // ek(RndB)
-  dumpInfo(message, 8);
-  client.Recieve(message, 16);  // ek(RndA || RndB')
-  dumpInfo(message, 16);
-  AuthBuffer[0] = 0xAF;
-  memcpy(AuthBuffer + 1, message, 16);  // copy the enc(RndB) from the message
-  status = mfrc522.PCD_CalculateCRC(AuthBuffer, 17, &AuthBuffer[17]);
-  if (status != MFRC522::STATUS_OK) {
-    return;
-  }
-  // Step - 4
-  status = mfrc522.PCD_TransceiveData(AuthBuffer, 19, AuthBuffer, &AuthLength, nullptr, 0, true);
-  if (status != MFRC522::STATUS_OK) {
-    Serial.print(F("Auth failed failed: "));
-    Serial.println(MFRC522::GetStatusCodeName(status));
-    Serial.println(F("Reply: "));
-    dumpInfo(AuthBuffer, AuthLength);
-    return;
-  } else {
-    if (AuthBuffer[0] == 0x00) {             // reply from PICC should start with 0x00
-      memcpy(message, &AuthBuffer[1], 8);  // copy enc(RndA')
-      client.Send(message, 8);             // ek(RndA')
-      dumpInfo(message, 8);
-    } else {
-      Serial.println(F("Wrong answer!!!"));
     }
   }
 }

@@ -321,14 +321,12 @@ uint32_t Desfire::GetAppIdFromNetwork() {
     return appId;
 }
 
-boolean Desfire::ChangeKeyNetwork(KeyType keyType) {
+boolean Desfire::ChangeKeyNetwork(KeyType keyType,String name, const unsigned char presharedKey[16]) {
     Serial.println("Change key network");
     NetworkClient client(ip);
     MFRC522::StatusCode status;
 
     byte serverCommand = 0xC4;
-    //TODO  
-    String name = "Big A";
 
     Buffer<300> message;
     message.append(serverCommand);
@@ -347,8 +345,8 @@ boolean Desfire::ChangeKeyNetwork(KeyType keyType) {
     //Recieve doubly encrypted dataframe
     client.Recieve(message.buffer, messageLength);
     AES32 sharedKeyEncryptor;
-    String presharedKey = "secretKey1234567";
-    sharedKeyEncryptor.setKey((const unsigned char *) presharedKey.c_str(),128);
+    
+    sharedKeyEncryptor.setKey(presharedKey,128);
     byte iv [16] = {0};
     sharedKeyEncryptor.setIV(iv);
 

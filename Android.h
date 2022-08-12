@@ -7,9 +7,10 @@
 class Android {
    public:
     Android(MFRC522Extended* mfrc522, String ip);
-    boolean SelectApplication(Buffer<7> aid);
+    boolean SelectApplication(byte aid [7]);
     boolean Verify();
-    boolean GetKey();
+    boolean GetKey(String name, const unsigned char presharedKey[16]);
+    boolean CheckIsAvailable();
 
    private:
     MFRC522Extended* mfrc522;

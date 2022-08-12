@@ -19,6 +19,9 @@ MFRC522::StatusCode status;
 boolean isPresent = false;
 String ip;
 
+boolean Reader = true;
+boolean Writer = false;
+
 void setup() {
   Serial.begin(115200);
   while (!Serial)
@@ -27,36 +30,56 @@ void setup() {
   SPI.begin();
 
   findServerIP();
+  if(Writer){
+    startWebServer();
+  }
+  
   mfrc522.PCD_Init();
   Serial.println(F("Setup ready"));
 }
 
 void findServerIP() {
-  byte buffer[255] = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: \"ssdp:discover\"\r\nMX: 1\r\nST: server";
+  byte buffer[255] = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: \"ssdp:discover\"\r\nMX: 1\r\nST: doorserver";
   WiFiUDP udp;
   const char * udpAddress = "239.255.255.250";
   const int udpPort = 1900;
   udp.beginPacket(udpAddress, udpPort);
-  
-  udp.write(buffer, 88);
+
+  udp.write(buffer, 92);
   udp.endPacket();
   delay(1000);
   int size = udp.parsePacket();
-  udp.read(buffer,size);
-  String answer = String( (char *)buffer); 
-  int startIndex = answer.indexOf("LOCATION:");
-  if(startIndex== -1){
-    return;
+  bool gotIp = false;
+  while (!gotIp) {
+    udp.read(buffer, size);
+    String answer = String( (char *)buffer);
+    if(answer.indexOf("home-key-pro-door-opener") == -1){
+      Serial.println("Continue search");
+      Serial.println(answer);
+      continue;
+    }
+    int startIndex = answer.indexOf("LOCATION:");
+    if (startIndex == -1) {
+      Serial.println("No location field");
+      Serial.println(answer);
+      return;
+    }
+    String subStringAnswer = answer.substring(startIndex);
+    int endIndex = subStringAnswer.indexOf('\n');
+    if (endIndex != -1) {
+      subStringAnswer = subStringAnswer.substring(0, endIndex);
+    }
+    ip = subStringAnswer.substring(subStringAnswer.indexOf(':') + 1);
+    ip.trim();
+    gotIp = true;
+    Serial.println("Server ip is:");
+    Serial.println(ip);
   }
-  String subStringAnswer = answer.substring(startIndex);
-  int endIndex = subStringAnswer.indexOf('\n');
-  if(endIndex != -1){
-    subStringAnswer = subStringAnswer.substring(0,endIndex);
-  }
-  ip = subStringAnswer.substring(subStringAnswer.indexOf(':')+1);
-  ip.trim();
-  Serial.println("Server ip is:");
-  Serial.println(ip);
+
+}
+
+void startWebServer(){
+  
 }
 
 
@@ -75,71 +98,95 @@ void loop() {
         Serial.println("Ultralight detected");
         //RequestAuthUltralightCNetwork();
       } else if (mfrc522.uid.sak == 0x20) {
-        Serial.println("Desfire detected");
-        Desfire desfire = Desfire(&mfrc522,ip);
-        Serial.println(mfrc522.uid.sak);
-        dumpInfo(mfrc522.uid.uidByte, 10);
-        boolean AndroidBool = true;
-        if (AndroidBool) {
-          Android android = Android(&mfrc522,ip);
+        if (mfrc522.uid.size == 4) {
+          Serial.println("Android detected");
+          Android android = Android(&mfrc522, ip);
           Buffer<7> buffer;
           byte aid[] = {0xF0, 0x39, 0x41, 0x45, 0x32, 0x81, 0x00};
           buffer.appendBuffer(aid, 7);
-
           if (!android.SelectApplication(buffer)) {
             Serial.println("Android Error");
             return;
           }
-          if (!android.GetKey()) {
-            return;
-          }
-          if (!android.Verify()) {
-            return;
-          }
-        }
-
-        boolean Reader = false;
-        if (Reader) {
-          uint32_t appId = desfire.GetAppIdFromNetwork();
-          if (appId == 0) {
-            return;
-          }
-          if (!desfire.SelectApplication(appId)) {
-            return;
-          }
-          if (!desfire.AuthenticateNetwork(KEYTYPE_AES, 0)) {
-            return;
-          }
-          Serial.println("Open door");
-        }
-
-        boolean Writer = false;
-        if (Writer) {
-          uint32_t appId = 0;
-          KeySettings keySettings;
-          if (!desfire.GetKeySettings(&keySettings)) {
-            return;
-          }
-          KeyType masterKeyType = keySettings.keyType;
-          if (!desfire.AuthenticateNetwork(masterKeyType, 0)) {
-            //TODO check if applications can be created
-          } else {
-            if (masterKeyType != KEYTYPE_AES) {
-              if (!desfire.ChangeKeyNetwork(KEYTYPE_AES)) {
-                // should not happen
-              }
+          if (Reader) {
+            if (!android.Verify()) {
+              return;
             }
-            appId = desfire.GetAppIdFromNetwork();
+          }
+          if (Writer) {
+            if (!android.GetKey()) {
+              return;
+            }
+          }
+        } else if (mfrc522.uid.size == 7) {
+          Serial.println("Desfire detected");
+          Desfire desfire = Desfire(&mfrc522, ip);
+          if (Reader) {
+            uint32_t appId = desfire.GetAppIdFromNetwork();
             if (appId == 0) {
-              //Website neue Karte
+              return;
+            }
+            if (!desfire.SelectApplication(appId)) {
+              return;
+            }
+            if (!desfire.AuthenticateNetwork(KEYTYPE_AES, 0)) {
+              return;
+            }
+            Serial.println("Open door");
+          }
+          if (Writer) {
+            uint32_t appId = 0;
+            KeySettings keySettings;
+            if (!desfire.GetKeySettings(&keySettings)) {
+              return;
+            }
+            KeyType masterKeyType = keySettings.keyType;
+            if (!desfire.AuthenticateNetwork(masterKeyType, 0)) {
+              //TODO check if applications can be created
+              Serial.println("Bad state");
             } else {
-              if (!desfire.SelectApplication(appId)) {
-                //Should not happen
+              if (masterKeyType != KEYTYPE_AES) {
+                if (!desfire.ChangeKeyNetwork(KEYTYPE_AES)) {
+                  // should not happen
+                }
               }
-              if (!desfire.AuthenticateNetwork(KEYTYPE_AES, 0)) {
-                appId = 0;
+              appId = desfire.GetAppIdFromNetwork();
+              if (appId == 0) {
+                //Website neue Karte
+
+                //TEST CODE
+                uint32_t appIds[32];
+                int anz_ids = desfire.GetAppIds(appIds, 32);
+
+                uint32_t nextAppID = getNextFreeAppId(appIds, anz_ids);
+                if (!desfire.CreateApplication(nextAppID, 1, KEYTYPE_AES)) {
+                  Serial.println("Create app failed");
+                  return;
+                }
+                if (!desfire.SelectApplication(nextAppID)) {
+                  Serial.println("Select app failed");
+                  return;
+                }
+                if (!desfire.AuthenticateNetwork(KEYTYPE_AES, 0)) {
+                  Serial.println("Auth failed here failed");
+                  return;
+                }
+                if (!desfire.ChangeKeyNetwork(KEYTYPE_AES)) {
+                  Serial.println("Change key here failed");
+                  return;
+                }
+                //TEST CODE
+
+
               } else {
-                //KartenName auf Website anzeigen;
+                if (!desfire.SelectApplication(appId)) {
+                  //Should not happen
+                }
+                if (!desfire.AuthenticateNetwork(KEYTYPE_AES, 0)) {
+                  appId = 0;
+                } else {
+                  //KartenName auf Website anzeigen;
+                }
               }
             }
           }
@@ -234,8 +281,10 @@ void RequestAuthUltralightCNetwork() {
 }
 
 uint32_t getNextFreeAppId(uint32_t appIds[], int length) {
+  if (length == 0) {
+    return 1;
+  }
   qsort(appIds, length, sizeof(uint32_t), sort_asc);
-
   if (appIds[0] != 1) {
     return 1;
   }

@@ -327,6 +327,7 @@ boolean Desfire::ChangeKeyNetwork(KeyType keyType) {
     MFRC522::StatusCode status;
 
     byte serverCommand = 0xC4;
+    //TODO  
     String name = "Big A";
 
     Buffer<300> message;
@@ -342,8 +343,19 @@ boolean Desfire::ChangeKeyNetwork(KeyType keyType) {
     byte messageLength;
     client.Recieve(&messageLength, 1);
     // TODO Check if messageLength > bufferLength
-    client.Recieve(message.buffer, messageLength);
 
+    //Recieve doubly encrypted dataframe
+    client.Recieve(message.buffer, messageLength);
+    AES32 sharedKeyEncryptor;
+    String presharedKey = "secretKey1234567";
+    sharedKeyEncryptor.setKey((const unsigned char *) presharedKey.c_str(),128);
+    byte iv [16] = {0};
+    sharedKeyEncryptor.setIV(iv);
+
+    Buffer<32> encBuffer;
+    sharedKeyEncryptor.decryptCBC(messageLength-2,message.buffer+2,encBuffer.buffer);
+    memcpy(message.buffer+2,encBuffer.buffer,32);
+    
     status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, messageLength, message.buffer, &messageLength);
     message.size = messageLength;
     if (status != MFRC522::STATUS_OK) {

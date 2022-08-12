@@ -1,4 +1,7 @@
 #include "Android.h"
+#include "mbedtls/md.h"
+
+String presharedKey = "secretKey";
 
 Android::Android(MFRC522Extended* mfrc522,String ip) {
     this->mfrc522 = mfrc522;
@@ -77,12 +80,25 @@ boolean Android::GetKey(){
         dumpInfo(response,responseLength);
         return false;
     }
+    
     NetworkClient client(ip);
     client.Send(&cmd,1);
     client.Send(currentUid,16);
     client.Send(&responseLength,1);
     client.Send(response,responseLength);
-    dumpInfo(response,responseLength);
+
+    //HMAC
+    byte hmacResult[32];
+    mbedtls_md_context_t ctx;
+    mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
+    mbedtls_md_init(&ctx);
+    mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 1);
+    mbedtls_md_hmac_starts(&ctx, (const unsigned char *) presharedKey.c_str(), presharedKey.length());
+    mbedtls_md_hmac_update(&ctx, (const unsigned char *) response, responseLength);
+    mbedtls_md_hmac_finish(&ctx, hmacResult);
+    mbedtls_md_free(&ctx);
+    client.Send(hmacResult,32);
+    
     Serial.println("Get Key end");
     return true;
 }

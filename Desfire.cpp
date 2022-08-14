@@ -7,7 +7,7 @@ int getBlockSize(KeyType keyType);
 int getAuthBlockSize(KeyType keyType);
 byte getAuthMode(KeyType keyType);
 
-Desfire::Desfire(MFRC522Extended* mfrc522,IPAddress ip,unsigned int port) {
+Desfire::Desfire(MFRC522Extended* mfrc522, IPAddress ip, unsigned int port) {
     this->mfrc522 = mfrc522;
     this->ip = ip;
     this->port = port;
@@ -27,7 +27,7 @@ boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
             // Not implemented
             return false;
     }
-    NetworkClient client(ip,port);
+    NetworkClient client(ip, port);
     Buffer<64> message;
     byte response[64] = {0};
     byte responseLength = 64;
@@ -87,23 +87,6 @@ boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
             authType = keyType;
             authenticated = true;
             authkeyNr = keyNr;
-            // if (authType == KEYTYPE_2K3DES) {
-            //     client.Recieve(sessionKey, 16);
-            //     byte deskey[24];  // = {0x36 ,0xC4 ,0xF8 ,0xBE ,0x30 ,0x6E ,0x6C ,0x76 ,0xAC ,0x22 ,0x9E ,0x8C ,0xF8 ,0x24 ,0xBA ,0x30 ,0x32 ,0x50 ,0xD4 ,0xAA ,0x64 ,0x36 ,0x56 ,0xA2};
-            //     memcpy(deskey, sessionKey, 16);
-            //     memcpy(deskey + 16, sessionKey, 8);
-            //     des.init(deskey, 0);
-            // } else if (authType == KEYTYPE_3DES) {
-            //     client.Recieve(sessionKey, 24);
-            //     byte deskey[24];  // = {0x36 ,0xC4 ,0xF8 ,0xBE ,0x30 ,0x6E ,0x6C ,0x76 ,0xAC ,0x22 ,0x9E ,0x8C ,0xF8 ,0x24 ,0xBA ,0x30 ,0x32 ,0x50 ,0xD4 ,0xAA ,0x64 ,0x36 ,0x56 ,0xA2};
-            //     memcpy(deskey, sessionKey, 24);
-            //     des.init(deskey, 0);
-            // } else if (authType == KEYTYPE_AES) {
-            //     client.Recieve(sessionKey, 16);
-            //     byte iv[16] = {0};
-            //     aes.setIV(iv);
-            //     aes.setKey(sessionKey, 128);
-            // }
             Serial.println("Auth succesful");
             return true;
         } else {
@@ -131,7 +114,7 @@ boolean Desfire::SelectApplication(uint32_t appId) {
     }
     if (response[0] != DesfireStatusCode_OPERATION_OK) {
         Serial.println("Select App failed");
-        dumpInfo(response,responseLength);
+        dumpInfo(response, responseLength);
         return false;
     }
     applicationNr = appId;
@@ -182,7 +165,7 @@ boolean Desfire::GetKeySettings(KeySettings* keySettings) {
         dumpInfo(response, responseLength);
         return false;
     }
-    dumpInfo(response,responseLength);
+    dumpInfo(response, responseLength);
     keySettings->secSettings = response[1];
     keySettings->keyCount = response[2] & 0x0F;
     keySettings->keyType = (KeyType)(response[2] & 0xF0);
@@ -312,7 +295,7 @@ boolean Desfire::ChangeKey(byte key[], KeyType keyType, int keyNr) {
 }
 
 uint32_t Desfire::GetAppIdFromNetwork() {
-    NetworkClient client(ip,port);
+    NetworkClient client(ip, port);
     byte serverCommand = 0x6A;
     client.Send(&serverCommand, 1);
     client.Send(mfrc522->uid.uidByte, 7);
@@ -323,7 +306,7 @@ uint32_t Desfire::GetAppIdFromNetwork() {
 }
 
 boolean Desfire::IsKeyKnown() {
-    NetworkClient client(ip,port);
+    NetworkClient client(ip, port);
     byte serverCommand = 0x66;
     client.Send(&serverCommand, 1);
     client.Send(mfrc522->uid.uidByte, 7);
@@ -332,9 +315,9 @@ boolean Desfire::IsKeyKnown() {
     return message == 1;
 }
 
-boolean Desfire::ChangeKeyNetwork(KeyType keyType,String name, const unsigned char presharedKey[16]) {
+boolean Desfire::ChangeKeyNetwork(KeyType keyType, String name, const unsigned char presharedKey[16]) {
     Serial.println("Change key network");
-    NetworkClient client(ip,port);
+    NetworkClient client(ip, port);
     MFRC522::StatusCode status;
 
     byte serverCommand = 0xC4;
@@ -350,24 +333,24 @@ boolean Desfire::ChangeKeyNetwork(KeyType keyType,String name, const unsigned ch
     client.Send(message.buffer, message.size);
 
     byte originalLength;
-    client.Recieve(&originalLength,1);
+    client.Recieve(&originalLength, 1);
 
     byte messageLength;
     client.Recieve(&messageLength, 1);
 
-    //Recieve doubly encrypted dataframe
+    // Recieve doubly encrypted dataframe
     client.Recieve(message.buffer, messageLength);
     AES32 sharedKeyEncryptor;
-    
-    sharedKeyEncryptor.setKey(presharedKey,128);
-    byte iv [16] = {0};
+
+    sharedKeyEncryptor.setKey(presharedKey, 128);
+    byte iv[16] = {0};
     sharedKeyEncryptor.setIV(iv);
 
     Buffer<32> encBuffer;
-    sharedKeyEncryptor.decryptCBC(messageLength-2,message.buffer+2,encBuffer.buffer);
-    memcpy(message.buffer+2,encBuffer.buffer,originalLength);
-    
-    status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, originalLength+2, message.buffer, &messageLength);
+    sharedKeyEncryptor.decryptCBC(messageLength - 2, message.buffer + 2, encBuffer.buffer);
+    memcpy(message.buffer + 2, encBuffer.buffer, originalLength);
+
+    status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, originalLength + 2, message.buffer, &messageLength);
     message.size = messageLength;
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Key change failed");
@@ -434,8 +417,6 @@ int Desfire::GetAppIds(uint32_t appIds[], int maxLength) {
     };
     return ids;
 }
-
-
 
 boolean Desfire::EncryptDataframe(byte dataframe[], byte encDataframe[], int length) {
     if (!authenticated) {

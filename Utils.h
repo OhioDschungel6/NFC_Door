@@ -5,6 +5,7 @@ void dumpInfo(byte*, int);
 void hex2bin(const char* src, byte* target);
 
 uint32_t parseAppId(const byte* buffer);
+uint32_t getNextFreeAppId(uint32_t appIds[], int length);
 
 #define CHECK_SIZE(s) \
     if (size + s - 1 >= N) return false;

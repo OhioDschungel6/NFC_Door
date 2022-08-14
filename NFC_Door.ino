@@ -10,7 +10,7 @@
 #include "NetworkManager.h"
 #include "Utils.h"
 
-//Libraries Webserver
+// Libraries Webserver
 #include "ArduinoJson.h"
 #include "AsyncJson.h"
 #include "ESPAsyncWebServer.h"
@@ -186,15 +186,19 @@ void deleteDevice(byte uid[]) {
     NetworkClient client(serverIp, serverPort);
     byte cmd = 0xDD;
     client.Send(&cmd, 1);
+
     byte ekNonce[16];
-    byte nonce[17];
     client.Recieve(ekNonce, 16);
+
+    byte iv[16] = {0};
     AES32 sharedKeyDecryptor;
     sharedKeyDecryptor.setKey(presharedKey, 128);
-    byte iv[16] = {0};
     sharedKeyDecryptor.setIV(iv);
+
+    byte nonce[17];
     sharedKeyDecryptor.decryptCBC(16, ekNonce, nonce + 1);
     dumpInfo(nonce + 1, 16);
+    // Rotate nonce for authentication
     nonce[0] = nonce[16];
 
     AES32 sharedKeyEncryptor;
@@ -238,7 +242,7 @@ RegisterResult registerDevice(String name) {
 
 RegisterResult registerAndroidDevice(String name) {
     Android android = Android(&mfrc522, serverIp, serverPort);
-    //TODO Change aid?
+    // TODO Change aid?
     byte aid[] = {0xF0, 0x39, 0x41, 0x45, 0x32, 0x81, 0x00};
     if (!android.SelectApplication(aid)) {
         Serial.println("Android Error");
@@ -259,16 +263,17 @@ RegisterResult registerDesfireDevice(String name) {
 
     KeyType masterKeyType = keySettings.keyType;
     if (!desfire.AuthenticateNetwork(masterKeyType, 0)) {
-        //Could not authentificate against masterkey
-        //check if applications can be created
+        // Could not authentificate against masterkey
+        // check if applications can be created
         Serial.println("Foreign card");
+        // Check for permissions "list applications without MK" and "create application without MK"
         if ((keySettings.secSettings & 0x06) != 0x06) {
             Serial.println("Not allowed to create applications without masterkey");
             return RegisterResult_CardNotCompatible;
         }
     } else if (!desfire.IsKeyKnown()) {
-        //We could authentificate, but we dont know the key ==> key is default key
-        //Change masterkeytype
+        // We could authentificate, but we dont know the key ==> key is default key
+        // Change masterkeytype
         Serial.println("Change key, because key was default");
         if (!desfire.ChangeKeyNetwork(KEYTYPE_AES, name, presharedKey)) {
             // should not happen
@@ -277,7 +282,7 @@ RegisterResult registerDesfireDevice(String name) {
     }
     uint32_t appId = desfire.GetAppIdFromNetwork();
     if (appId == 0) {
-        //Card is unknown to server
+        // Card is unknown to server
         uint32_t appIds[32];
         int anz_ids = desfire.GetAppIds(appIds, 32);
         uint32_t nextAppID = getNextFreeAppId(appIds, anz_ids);
@@ -293,13 +298,13 @@ RegisterResult registerDesfireDevice(String name) {
             Serial.println("Auth failed");
             return RegisterResult_NfcError;
         }
-        //Register card on server
+        // Register card on server
         if (!desfire.ChangeKeyNetwork(KEYTYPE_AES, name, presharedKey)) {
             return RegisterResult_NfcError;
         }
         return RegisterResult_OK;
     } else {
-        //Card already known to server
+        // Card already known to server
         if (!desfire.SelectApplication(appId)) {
             return RegisterResult_NfcError;
         }
@@ -330,7 +335,6 @@ void loop() {
         if (mfrc522.uid.size == 4) {
             Serial.println("Android detected");
             Android android = Android(&mfrc522, serverIp, serverPort);
-            Buffer<7> buffer;
             byte aid[] = {0xF0, 0x39, 0x41, 0x45, 0x32, 0x81, 0x00};
             if (!android.SelectApplication(aid)) {
                 Serial.println("Select failed");
@@ -345,7 +349,7 @@ void loop() {
             Desfire desfire = Desfire(&mfrc522, serverIp, serverPort);
             uint32_t appId = desfire.GetAppIdFromNetwork();
             if (appId == 0) {
-                //Card unknown
+                // Card unknown
                 return;
             }
             if (!desfire.SelectApplication(appId)) {
@@ -372,30 +376,4 @@ void loop() {
             return;
         }
     }
-}
-
-uint32_t getNextFreeAppId(uint32_t appIds[], int length) {
-    if (length == 0) {
-        return 1;
-    }
-    qsort(appIds, length, sizeof(uint32_t), sort_asc);
-    if (appIds[0] != 1) {
-        return 1;
-    }
-    for (int i = 0; i < length - 1; i++) {
-        if (appIds[i] < appIds[i + 1] - 1) {
-            return appIds[i] + 1;
-        }
-    }
-    return appIds[length - 1] + 1;
-}
-
-int sort_asc(const void *cmp1, const void *cmp2) {
-    // Need to cast the void * to int *
-    int a = *((uint32_t *)cmp1);
-    int b = *((uint32_t *)cmp2);
-    // The comparison
-    return a < b ? -1 : (a > b ? 1 : 0);
-    // A simpler, probably faster way:
-    //return b - a;
 }

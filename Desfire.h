@@ -31,6 +31,7 @@ class Desfire {
     boolean FormatCard();
     int GetAppIds(uint32_t appIds[], int maxLength);
     uint32_t GetAppIdFromNetwork();
+    boolean IsKeyKnown();
 
    private:
     MFRC522Extended* mfrc522;

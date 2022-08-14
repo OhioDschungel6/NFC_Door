@@ -2,13 +2,6 @@
 
 #include <DNSServer.h>
 
-// String host = "192.168.178.22";
-// Regensburg
-//IPAddress host(192, 168, 178, 22);
-// Bruck
-//IPAddress host(192,168,179,85);
-//unsigned int port = 80;
-
 void dumpInfo(byte *ar, int len);
 
 NetworkClient::NetworkClient(IPAddress ip,unsigned int port) {

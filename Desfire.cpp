@@ -217,7 +217,7 @@ boolean Desfire::CreateApplication(uint32_t appId, byte keyCount, KeyType keyTyp
     Buffer<32> message;
     message.append(DesfireCommand_CREATE_APPLICATION);
     message.append24(appId);
-    message.append(0x0F);  // Who can change key, 0F is factory default. TODO enum;
+    message.append(0x0F);
     message.append(keyType | keyCount);
     // dumpInfo(message, 6);
 
@@ -322,6 +322,16 @@ uint32_t Desfire::GetAppIdFromNetwork() {
     return appId;
 }
 
+boolean Desfire::IsKeyKnown() {
+    NetworkClient client(ip,port);
+    byte serverCommand = 0x66;
+    client.Send(&serverCommand, 1);
+    client.Send(mfrc522->uid.uidByte, 7);
+    byte message;
+    client.Recieve(&message, 1);
+    return message == 1;
+}
+
 boolean Desfire::ChangeKeyNetwork(KeyType keyType,String name, const unsigned char presharedKey[16]) {
     Serial.println("Change key network");
     NetworkClient client(ip,port);
@@ -329,7 +339,7 @@ boolean Desfire::ChangeKeyNetwork(KeyType keyType,String name, const unsigned ch
 
     byte serverCommand = 0xC4;
 
-    Buffer<300> message;
+    Buffer<255> message;
     message.append(serverCommand);
     message.append(keyType);
     message.appendBuffer(mfrc522->uid.uidByte, 7);
@@ -339,9 +349,11 @@ boolean Desfire::ChangeKeyNetwork(KeyType keyType,String name, const unsigned ch
 
     client.Send(message.buffer, message.size);
 
+    byte originalLength;
+    client.Recieve(&originalLength,1);
+
     byte messageLength;
     client.Recieve(&messageLength, 1);
-    // TODO Check if messageLength > bufferLength
 
     //Recieve doubly encrypted dataframe
     client.Recieve(message.buffer, messageLength);
@@ -353,9 +365,9 @@ boolean Desfire::ChangeKeyNetwork(KeyType keyType,String name, const unsigned ch
 
     Buffer<32> encBuffer;
     sharedKeyEncryptor.decryptCBC(messageLength-2,message.buffer+2,encBuffer.buffer);
-    memcpy(message.buffer+2,encBuffer.buffer,32);
+    memcpy(message.buffer+2,encBuffer.buffer,originalLength);
     
-    status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, messageLength, message.buffer, &messageLength);
+    status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, originalLength+2, message.buffer, &messageLength);
     message.size = messageLength;
     if (status != MFRC522::STATUS_OK) {
         Serial.println("Key change failed");
@@ -422,6 +434,8 @@ int Desfire::GetAppIds(uint32_t appIds[], int maxLength) {
     };
     return ids;
 }
+
+
 
 boolean Desfire::EncryptDataframe(byte dataframe[], byte encDataframe[], int length) {
     if (!authenticated) {

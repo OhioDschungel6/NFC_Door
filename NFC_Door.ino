@@ -245,22 +245,26 @@ boolean registerDesfireDevice(String name) {
   if (!desfire.GetKeySettings(&keySettings)) {
     return false;
   }
+  appId = desfire.GetAppIdFromNetwork();
   KeyType masterKeyType = keySettings.keyType;
   if (!desfire.AuthenticateNetwork(masterKeyType, 0)) {
     //Could not authentificate against masterkey
-    //TODO check if applications can be created
-    Serial.println("Bad state");
-    return false;
-  }
-  if (masterKeyType != KEYTYPE_AES) {
-    //Change masterkeytype to AES
+    //check if applications can be created
+    Serial.println("Foreign card");
+    if((keySettings.secSettings & 0x06) !=0x06){
+      Serial.println("Not allowed to create applications without masterkey");
+      return false;
+    }
+  } else if (!desfire.IsKeyKnown()) {
+    //We could authentificate, but we dont know the key ==> key is default key
+    //Change masterkeytype
+    Serial.println("Change key, because key was default");
     if (!desfire.ChangeKeyNetwork(KEYTYPE_AES, name, presharedKey)) {
       // should not happen
       return false;
     }
   }
-  //TODO Change key if default key, even if default key is AES
-  appId = desfire.GetAppIdFromNetwork();
+  
   if (appId == 0) {
     //Card is unknown to server
     uint32_t appIds[32];

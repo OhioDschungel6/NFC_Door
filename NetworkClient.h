@@ -9,5 +9,5 @@ class NetworkClient {
     int Recieve(byte[], int);
 
    private:
-    WiFiClient client;  // Use WiFiClient class to create TCP connections
+    WiFiClient client;
 };

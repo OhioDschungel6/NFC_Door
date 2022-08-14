@@ -20,16 +20,6 @@
 #define RST_PIN 21
 #define SS_PIN 5
 
-enum RegisterResult : byte {
-    RegisterResult_OK,
-    RegisterResult_AlreadyRegistered,
-    RegisterResult_Failed,
-    RegisterResult_NoCard,
-    RegisterResult_CardNotCompatible,
-    RegisterResult_AppNotInstalled,
-    RegisterResult_NfcError
-};
-
 NetworkManager networkManager;
 MFRC522Extended mfrc522(SS_PIN, RST_PIN);  // Create MFRC522 instance
 MFRC522::StatusCode status;
@@ -135,37 +125,11 @@ void startWebServer() {
 
     server.onRequestBody([](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
         if (request->url() == "/api/chip") {
-            if (request->method() == HTTP_POST) {
-                DynamicJsonBuffer jsonBuffer;
-                JsonObject &root = jsonBuffer.parseObject((const char *)data);
-                if (root.success()) {
-                    if (root.containsKey("name")) {
-                        if (registerDevice(root["name"].asString())) {
-                            request->send(200);
-                            return;
-                        }
-                    }
-                }
-                request->send(201);
-                return;
-            } else if (request->method() == HTTP_DELETE) {
-                DynamicJsonBuffer jsonBuffer;
-                JsonObject &root = jsonBuffer.parseObject((const char *)data);
-                if (root.success()) {
-                    if (root.containsKey("uid")) {
-                        String hexStringUid = root["uid"].asString();
-                        byte uid[16];
-                        hex2bin(hexStringUid.c_str(), uid);
-                        deleteDevice(uid);
-                        request->send(200);
-                        return;
-                    }
-                }
-                request->send(201);
-                return;
-            }
+            handleChipApi(request, data);
+        } else {
+            request->send(404);
+            return;
         }
-        request->send(404);
     });
 
     Serial.println("Starting server NOW...");
@@ -180,6 +144,38 @@ void startWebServer() {
         return;
     }
     MDNS.addService("http", "tcp", 80);
+}
+
+void handleChipApi(AsyncWebServerRequest *request, uint8_t *data) {
+    if (request->method() != HTTP_POST && request->method() != HTTTP_DELETE) {
+        request->send(405);
+        return;
+    }
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject &root = jsonBuffer.parseObject((const char *)data);
+    if (request->method() == HTTP_POST) {
+        if (!root.success() || !root.containsKey("name")) {
+            request->send(201);
+            return;
+        }
+        RegisterResult result = registerDevice(root["name"].asString());
+        AsyncResponseStream *response = request->beginResponseStream("application/json");
+        DynamicJsonBuffer jsonBuffer;
+        JsonObject &root = jsonBuffer.createObject();
+        root["result"] = registerResultToString(result);
+        root.printTo(*response);
+        request->send(response);
+    } else if (request->method() == HTTP_DELETE) {
+        if (!root.success() || !root.containsKey("uid")) {
+            request->send(201);
+            return;
+        }
+        String hexStringUid = root["uid"].asString();
+        byte uid[16];
+        hex2bin(hexStringUid.c_str(), uid);
+        deleteDevice(uid);
+        request->send(200);
+    }
 }
 
 void deleteDevice(byte uid[]) {
@@ -251,7 +247,7 @@ RegisterResult registerAndroidDevice(String name) {
     if(!android.GetKey(name, presharedKey){
         return RegisterResult_NfcError;
     }
-    return RegisterResult_OK;
+    return RegisterResult_Ok;
 }
 
 RegisterResult registerDesfireDevice(String name) {
@@ -302,7 +298,7 @@ RegisterResult registerDesfireDevice(String name) {
         if (!desfire.ChangeKeyNetwork(KEYTYPE_AES, name, presharedKey)) {
             return RegisterResult_NfcError;
         }
-        return RegisterResult_OK;
+        return RegisterResult_Ok;
     } else {
         // Card already known to server
         if (!desfire.SelectApplication(appId)) {

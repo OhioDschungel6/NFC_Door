@@ -1,6 +1,17 @@
 #pragma once
 #include <Arduino.h>
 
+enum RegisterResult : byte {
+    RegisterResult_Ok,
+    RegisterResult_AlreadyRegistered,
+    RegisterResult_Failed,
+    RegisterResult_NoCard,
+    RegisterResult_CardNotCompatible,
+    RegisterResult_AppNotInstalled,
+    RegisterResult_NfcError
+};
+char* registerResultToString(RegisterResult result);
+
 void dumpInfo(byte*, int);
 void hex2bin(const char* src, byte* target);
 

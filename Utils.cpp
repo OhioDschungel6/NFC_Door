@@ -1,5 +1,24 @@
 #include "Utils.h"
 
+const char* registerResultToString(RegisterResult result) {
+    switch (result) {
+        case RegisterResult_Ok:
+            return "Ok";
+        case RegisterResult_AlreadyRegistered:
+            return "AlreadyRegistered";
+        case RegisterResult_Failed:
+            return "Failed";
+        case RegisterResult_NoCard:
+            return "NoCard";
+        case RegisterResult_CardNotCompatible:
+            return "CardNotCompatible";
+        case RegisterResult_AppNotInstalled:
+            return "AppNotInstalled";
+        case RegisterResult_NfcError:
+            return "NfcError";
+    }
+}
+
 void dumpInfo(byte* ar, int len) {
     for (int i = 0; i < len; i++) {
         if (ar[i] < 0x10)

@@ -20,7 +20,7 @@ struct KeySettings {
 
 class Desfire {
    public:
-    Desfire(MFRC522Extended* mfrc522,String ip);
+    Desfire(MFRC522Extended* mfrc522,IPAddress ip,unsigned int port);
     boolean AuthenticateNetwork(KeyType keyType, int keyNr);
     boolean ChangeKey(byte key[], KeyType keyType, int keyNr);
     boolean ChangeKeyNetwork(KeyType keyType,String name, const unsigned char presharedKey[]);
@@ -34,7 +34,8 @@ class Desfire {
 
    private:
     MFRC522Extended* mfrc522;
-    String ip;
+    IPAddress ip;
+    unsigned int port;
     boolean authenticated = false;
     uint32_t applicationNr = 0;
     byte sessionKey[24];

@@ -9,6 +9,8 @@
 #include "NetworkManager.h"
 #include "Utils.h"
 
+#include <ESPmDNS.h>
+
 //Libraries Webserver
 #include "ArduinoJson.h"
 #include "AsyncJson.h"
@@ -24,7 +26,8 @@ MFRC522Extended mfrc522(SS_PIN, RST_PIN);  // Create MFRC522 instance
 MFRC522::StatusCode status;
 
 boolean isPresent = false;
-String ip;
+IPAddress serverIp;
+unsigned int serverPort;
 AsyncWebServer server(80);
 
 boolean Reader = false;
@@ -49,42 +52,24 @@ void setup() {
 }
 
 void findServerIP() {
-  byte buffer[255] = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: \"ssdp:discover\"\r\nMX: 1\r\nST: doorserver";
-  WiFiUDP udp;
-  const char *udpAddress = "239.255.255.250";
-  const int udpPort = 1900;
-  udp.beginPacket(udpAddress, udpPort);
-
-  udp.write(buffer, 92);
-  udp.endPacket();
-  delay(1000);
-  int size = udp.parsePacket();
-  bool gotIp = false;
-  while (!gotIp) {
-    udp.read(buffer, size);
-    String answer = String((char *)buffer);
-    if (answer.indexOf("home-key-pro-door-opener") == -1) {
-      Serial.println("Continue search");
-      Serial.println(answer);
-      continue;
-    }
-    int startIndex = answer.indexOf("LOCATION:");
-    if (startIndex == -1) {
-      Serial.println("No location field");
-      Serial.println(answer);
-      return;
-    }
-    String subStringAnswer = answer.substring(startIndex);
-    int endIndex = subStringAnswer.indexOf('\n');
-    if (endIndex != -1) {
-      subStringAnswer = subStringAnswer.substring(0, endIndex);
-    }
-    ip = subStringAnswer.substring(subStringAnswer.indexOf(':') + 1);
-    ip.trim();
-    gotIp = true;
-    Serial.println("Server ip is:");
-    Serial.println(ip);
+  if (mdns_init() != ESP_OK) {
+    Serial.println("mDNS failed to start");
+    return;
   }
+  const char * proto = "tcp";
+  const char * service = "homekeypro";
+  Serial.printf("Browsing for service _%s._%s.local. ... ", service, proto);
+  int n = MDNS.queryService(service, proto);
+  if (n == 0) {
+    Serial.println("no services found");
+  }
+  serverIp = MDNS.IP(0);
+  serverPort = MDNS.port(0);
+  Serial.println("Server address:");
+  Serial.print(serverIp);
+  Serial.print(":");
+  Serial.println(serverPort);
+
 }
 
 void startWebServer() {
@@ -93,8 +78,6 @@ void startWebServer() {
     Serial.println("An Error has occurred while mounting SPIFFS");
     return;
   }
-  // Print ESP32 Local IP Address
-  Serial.println(WiFi.localIP());
 
   // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
@@ -112,7 +95,7 @@ void startWebServer() {
   });
   server.on("/api/chips", HTTP_GET, [](AsyncWebServerRequest * request) {
     AsyncResponseStream *response = request->beginResponseStream("application/json");
-    NetworkClient client(ip);
+    NetworkClient client(serverIp,serverPort);
     byte cmd = 0x6D;
     client.Send(&cmd, 1);
     int length;
@@ -180,10 +163,19 @@ void startWebServer() {
   Serial.println("Starting server NOW...");
   // Start server
   server.begin();
+  if(mdns_init()!= ESP_OK){
+    Serial.println("mDNS failed to start");
+    return;
+  }
+  if(!MDNS.begin("Home-key-pro")) {
+     Serial.println("Error starting mDNS");
+     return;
+  }
+  MDNS.addService("http", "tcp", 80);
 }
 
 void deleteDevice(byte uid[]) {
-  NetworkClient client(ip);
+  NetworkClient client(serverIp,serverPort);
   byte cmd = 0xDD;
   client.Send(&cmd, 1);
   byte ekNonce [16];
@@ -194,7 +186,7 @@ void deleteDevice(byte uid[]) {
   byte iv [16] = {0};
   sharedKeyDecryptor.setIV(iv);
   sharedKeyDecryptor.decryptCBC(16, ekNonce, nonce + 1);
-  dumpInfo(nonce+1,16);
+  dumpInfo(nonce + 1, 16);
   nonce[0] = nonce[16];
 
   AES32 sharedKeyEncryptor;
@@ -237,7 +229,7 @@ boolean registerDevice(String name) {
 }
 
 boolean registerAndroidDevice(String name) {
-  Android android = Android(&mfrc522, ip);
+  Android android = Android(&mfrc522, serverIp,serverPort);
   byte aid[] = {0xF0, 0x39, 0x41, 0x45, 0x32, 0x81, 0x00};
   if (!android.SelectApplication(aid)) {
     Serial.println("Android Error");
@@ -247,7 +239,7 @@ boolean registerAndroidDevice(String name) {
 }
 
 boolean registerDesfireDevice(String name) {
-  Desfire desfire = Desfire(&mfrc522, ip);
+  Desfire desfire = Desfire(&mfrc522, serverIp,serverPort);
   uint32_t appId = 0;
   KeySettings keySettings;
   if (!desfire.GetKeySettings(&keySettings)) {
@@ -316,7 +308,7 @@ void loop() {
     isPresent = true;
     if (mfrc522.uid.size == 4) {
       Serial.println("Android detected");
-      Android android = Android(&mfrc522, ip);
+      Android android = Android(&mfrc522, serverIp,serverPort);
       Buffer<7> buffer;
       byte aid[] = {0xF0, 0x39, 0x41, 0x45, 0x32, 0x81, 0x00};
       if (!android.SelectApplication(aid)) {
@@ -329,7 +321,7 @@ void loop() {
       }
     } else if (mfrc522.uid.size == 7) {
       Serial.println("Desfire detected");
-      Desfire desfire = Desfire(&mfrc522, ip);
+      Desfire desfire = Desfire(&mfrc522, serverIp,serverPort);
       uint32_t appId = desfire.GetAppIdFromNetwork();
       if (appId == 0) {
         //Card unknown

@@ -7,16 +7,16 @@
 //IPAddress host(192, 168, 178, 22);
 // Bruck
 //IPAddress host(192,168,179,85);
-unsigned int port = 80;
+//unsigned int port = 80;
 
 void dumpInfo(byte *ar, int len);
 
-NetworkClient::NetworkClient(String ip) {
+NetworkClient::NetworkClient(IPAddress ip,unsigned int port) {
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println("Wifi not available");
         return;
     }
-    if (!client.connect(ip.c_str(), port)) {
+    if (!client.connect(ip, port)) {
         // Error;
     }
 }

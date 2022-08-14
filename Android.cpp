@@ -1,9 +1,10 @@
 #include "Android.h"
 #include "mbedtls/md.h"
 
-Android::Android(MFRC522Extended* mfrc522,String ip) {
+Android::Android(MFRC522Extended* mfrc522,IPAddress ip,unsigned int port) {
     this->mfrc522 = mfrc522;
     this->ip = ip;
+    this->port = port;
 }
 
 boolean Android::SelectApplication(byte aid[7]){
@@ -36,7 +37,7 @@ boolean Android::SelectApplication(byte aid[7]){
 
 boolean Android::Verify(){
     Serial.println("Verify Android");
-    NetworkClient client(ip);
+    NetworkClient client(ip,port);
     byte cmd = 0x4A;
     client.Send(&cmd,1);
     client.Send(currentUid,16);
@@ -81,7 +82,7 @@ boolean Android::GetKey(String name, const unsigned char presharedKey[16]){
         return false;
     }
     
-    NetworkClient client(ip);
+    NetworkClient client(ip,port);
     client.Send(&cmd,1);
     client.Send(currentUid,16);
     byte nameLength = (byte) name.length();

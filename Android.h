@@ -6,7 +6,7 @@
 
 class Android {
    public:
-    Android(MFRC522Extended* mfrc522, String ip);
+    Android(MFRC522Extended* mfrc522, IPAddress ip,unsigned int port);
     boolean SelectApplication(byte aid [7]);
     boolean Verify();
     boolean GetKey(String name, const unsigned char presharedKey[16]);
@@ -14,7 +14,8 @@ class Android {
 
    private:
     MFRC522Extended* mfrc522;
-    String ip;
+    IPAddress ip;
+    unsigned int port;
     byte currentUid[16];
 };
 

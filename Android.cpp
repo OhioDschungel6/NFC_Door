@@ -122,3 +122,13 @@ boolean Android::CheckIsAvailable(){
     }
     
 }
+
+boolean Android::IsAndroidKnown() {
+    NetworkClient client(ip, port);
+    byte serverCommand = 0xA6;
+    client.Send(&serverCommand, 1);
+    client.Send(currentUid, 16);
+    byte message;
+    client.Recieve(&message, 1);
+    return message == 1;
+}

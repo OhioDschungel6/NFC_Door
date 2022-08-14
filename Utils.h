@@ -10,7 +10,7 @@ enum RegisterResult : byte {
     RegisterResult_AppNotInstalled,
     RegisterResult_NfcError
 };
-char* registerResultToString(RegisterResult result);
+const char* registerResultToString(RegisterResult result);
 
 void dumpInfo(byte*, int);
 void hex2bin(const char* src, byte* target);

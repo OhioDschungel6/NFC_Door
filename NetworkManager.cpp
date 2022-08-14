@@ -58,10 +58,9 @@ bool loadConfig() {
 
     configFile.readBytes(buf.get(), size);
 
-    StaticJsonBuffer<200> jsonBuffer;
-    JsonObject& json = jsonBuffer.parseObject(buf.get());
-
-    if (!json.success()) {
+    StaticJsonDocument<200> jsonBuffer;
+    DeserializationError error = deserializeJson(jsonBuffer,buf.get());
+    if (error) {
         Serial.println("Failed to parse config file");
         return false;
     }
@@ -69,16 +68,14 @@ bool loadConfig() {
 }
 
 bool saveConfig() {
-    StaticJsonBuffer<200> jsonBuffer;
-    JsonObject& json = jsonBuffer.createObject();
-
+    StaticJsonDocument<200> jsonBuffer;
     File configFile = SPIFFS.open("/config1.json", "w");
     if (!configFile) {
         Serial.println("Failed to open config file for writing");
         return false;
     }
 
-    json.printTo(configFile);
+    serializeJson(jsonBuffer,configFile);
     return true;
 }
 

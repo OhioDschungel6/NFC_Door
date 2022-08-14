@@ -3,12 +3,13 @@ import AbstractView from "./AbstractView.js";
 export default class extends AbstractView {
     constructor(params, functions, payload) {
         super(params);
-        this.setTitle("Chip created");
+        this.payload = payload;
+        this.setTitle("Success");
     }
 
     async getHtml() {
         return `
-            <div class="chip-created container">
+            <div class="chip-creation-success container">
                 <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
                     <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/>
                     <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
@@ -16,7 +17,7 @@ export default class extends AbstractView {
 
 
                 <h2>
-                    NFC-Device created!
+                    ${this.payload?.message ?? "NFC-Device created!"}
                 </h2>
 
                 <div class="buttons">
@@ -32,10 +33,10 @@ export default class extends AbstractView {
         const toHome = document.querySelector("#to-home");
 
         addCard.addEventListener("click", () => {
-            functions.navigateTo(window.location.protocol + "//" + window.location.host + "/new");
+            functions.navigateToPath("/new");
         });
         toHome.addEventListener("click", () => {
-            functions.navigateTo(window.location.protocol + "//" + window.location.host + "/");
+            functions.navigateToPath("/");
         });
     }
 }

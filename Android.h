@@ -11,6 +11,7 @@ class Android {
     boolean Verify();
     boolean GetKey(String name, const unsigned char presharedKey[16]);
     boolean CheckIsAvailable();
+    boolean IsAndroidKnown();
 
    private:
     MFRC522Extended* mfrc522;

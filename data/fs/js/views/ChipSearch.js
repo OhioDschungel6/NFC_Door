@@ -1,24 +1,61 @@
 import AbstractView from "./AbstractView.js";
 
+const CASE_MAP = {
+    Ok: {
+        retry: false,
+        error: false,
+        message: "Creation succeeded!"
+    },
+    AlreadyRegistered: {
+        retry: false,
+        error: false,
+        message: "Device was already registered!"
+    },
+    Failed: {
+        retry: false,
+        error: true,
+        message: "Creation failed - try again!"
+    },
+    NoCard: {
+        retry: true,
+        error: true,
+        message: "How did you get here???"
+    },
+    CardNotCompatible: {
+        retry: false,
+        error: false,
+        message: "Card is not compatible - creation failed!"
+    },
+    AppNotInstalled: {
+        retry: false,
+        error: false,
+        message: "The corresponding application is not installed on your device - creation failed!"
+    },
+    NfcError: {
+        retry: true,
+        error: false,
+        message: "You won 1 million dollars, congratulations!"
+    }
+}
+
 export default class extends AbstractView {
     constructor(params, functions, payload) {
         super(params);
         this.payload = payload;
-        this.setTitle("Checking for chip");
+        this.setTitle("Searching...");
 
         function poll() {
             fetch(window.location.protocol + "//" + window.location.host + "/api/chip", {method: 'POST', body: JSON.stringify({name: payload.name})})
-                .then((response) => {
-                    if (response.status == 200) {
-                      return response;
+                .then(result => result.json())
+                .then(response => {
+                    var caseFound = CASE_MAP[response.result]
+                    if (!caseFound || caseFound.retry) {
+                        throw new Error()
                     }
-                    throw new Error();
-                })
-                .then(() => {
-                    functions.navigateTo(window.location.protocol + "//" + window.location.host + "/chipFound");
+                    functions.navigateToPath(caseFound.error ? "/new/failure" : "/new/success", {message: caseFound.message});
                 })
                 .catch((error) => {
-                    if (window.location.href.includes("/chipSearch")) {
+                    if (window.location.href.includes("/new/search")) {
                         setTimeout(poll, 2000);
                     }
                 })
@@ -94,7 +131,7 @@ export default class extends AbstractView {
 
     onCreated(params, functions, payload) {
         if (!payload?.name) {
-            functions.navigateTo(window.location.protocol + "//" + window.location.host + "/new");
+            functions.navigateToPath("/new");
         }
     }
 }

@@ -8,15 +8,6 @@ export default class extends AbstractView {
     }
 
     async getHtml() {
-        /* let error = "";
-        if (this.payload?.error != undefined) {
-            error = `
-                <div class="alert">
-                    <span class="closebtn" onclick="this.parentElement.style.display='none';">&times;</span> 
-                    <strong>Error!</strong> ${this.payload.error}
-                </div>
-            `
-        } */
         return `
             <div class="new-chip container">
                 <h2>
@@ -37,7 +28,7 @@ export default class extends AbstractView {
 
         form.addEventListener("submit", (e) => {
             e.preventDefault();
-            functions.navigateTo(window.location.protocol + "//" + window.location.host + "/chipSearch", {name: name.value});
+            functions.navigateToPath("/new/search", {name: name.value});
         });
     }
 }

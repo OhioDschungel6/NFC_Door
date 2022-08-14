@@ -17,6 +17,7 @@ const char* registerResultToString(RegisterResult result) {
         case RegisterResult_NfcError:
             return "NfcError";
     }
+    return "";
 }
 
 void dumpInfo(byte* ar, int len) {
@@ -50,6 +51,12 @@ uint32_t parseAppId(const byte* buffer) {
     return buffer[0] | buffer[1] << 8 | buffer[2] << 16;
 }
 
+int sort_asc(const void* cmp1, const void* cmp2) {
+    int a = *((uint32_t*)cmp1);
+    int b = *((uint32_t*)cmp2);
+    return a < b ? -1 : (a > b ? 1 : 0);
+}
+
 uint32_t getNextFreeAppId(uint32_t appIds[], int length) {
     if (length == 0) {
         return 1;
@@ -64,10 +71,4 @@ uint32_t getNextFreeAppId(uint32_t appIds[], int length) {
         }
     }
     return appIds[length - 1] + 1;
-}
-
-int sort_asc(const void* cmp1, const void* cmp2) {
-    int a = *((uint32_t*)cmp1);
-    int b = *((uint32_t*)cmp2);
-    return a < b ? -1 : (a > b ? 1 : 0);
 }

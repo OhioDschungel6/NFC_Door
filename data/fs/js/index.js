@@ -1,10 +1,20 @@
 import Homepage from "./views/Homepage.js";
-import NewChip from "./views/NewChip.js";
+import NewChip from "./views/ChipCreation.js";
 import ChipSearch from "./views/ChipSearch.js";
-import ChipFound from "./views/ChipCreated.js";
 import ChipOverview from "./views/ChipOverview.js";
+import CreationOk from "./views/CreationOk.js";
+import CreationFail from "./views/CreationFail.js";
 
 const pathToRegex = path => new RegExp("^" + path.replace(/\//g, "\\/").replace(/:\w+/g, "(.+)") + "$");
+
+const routes = [
+    { path: "/", view: Homepage },
+    { path: "/new", view: NewChip },
+    { path: "/new/search", view: ChipSearch },
+    { path: "/new/success", view: CreationOk },
+    { path: "/new/failure", view: CreationFail },
+    { path: "/overview", view: ChipOverview },
+];
 
 const getParams = match => {
     const values = match.result.slice(1);
@@ -24,20 +34,17 @@ const navigateTo = (url, payload) => {
     router(payload);
 };
 
+const navigateToPath = (path, payload) => {
+    navigateTo(window.location.protocol + "//" + window.location.host + path, payload)
+};
+
 const functions = {
     navigateTo,
+    navigateToPath,
     refresh
 }
 
 const router = async (payload) => {
-    const routes = [
-        { path: "/", view: Homepage },
-        { path: "/new", view: NewChip },
-        { path: "/chipSearch", view: ChipSearch },
-        { path: "/chipFound", view: ChipFound },
-        { path: "/overview", view: ChipOverview },
-    ];
-
     // Test each route for potential match
     const potentialMatches = routes.map(route => {
         return {

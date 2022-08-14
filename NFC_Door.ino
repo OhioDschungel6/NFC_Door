@@ -104,6 +104,11 @@ void startWebServer() {
         request->send(response);
         delete[] devicesJson;
     });
+    AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler("/api/chip", [](AsyncWebServerRequest *request, JsonVariant &json) {
+        JsonObject &root = json.as<JsonObject>();
+        handleChipApi(request, root);
+    });
+    server.addHandler(handler);
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
         request->send(SPIFFS, "/index.html", String(), false);
     });
@@ -146,13 +151,11 @@ void startWebServer() {
     MDNS.addService("http", "tcp", 80);
 }
 
-void handleChipApi(AsyncWebServerRequest *request, uint8_t *data) {
+void handleChipApi(AsyncWebServerRequest *request, JsonObject &root) {
     if (request->method() != HTTP_POST && request->method() != HTTTP_DELETE) {
         request->send(405);
         return;
     }
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.parseObject((const char *)data);
     if (request->method() == HTTP_POST) {
         if (!root.success() || !root.containsKey("name")) {
             request->send(201);
@@ -161,9 +164,9 @@ void handleChipApi(AsyncWebServerRequest *request, uint8_t *data) {
         RegisterResult result = registerDevice(root["name"].asString());
         AsyncResponseStream *response = request->beginResponseStream("application/json");
         DynamicJsonBuffer jsonBuffer;
-        JsonObject &root = jsonBuffer.createObject();
-        root["result"] = registerResultToString(result);
-        root.printTo(*response);
+        JsonObject &outRoot = jsonBuffer.createObject();
+        outRoot["result"] = registerResultToString(result);
+        outRoot.printTo(*response);
         request->send(response);
     } else if (request->method() == HTTP_DELETE) {
         if (!root.success() || !root.containsKey("uid")) {

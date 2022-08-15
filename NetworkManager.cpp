@@ -2,14 +2,7 @@
 #include <DNSServer.h>
 #include <WiFiManager.h>  //https://github.com/tzapu/WiFiManager
 char wifiManagerAPName[] = "NFCReader";
-char wifiManagerAPPassword[] = "OhioDschungel6";
-
-//== DOUBLE-RESET DETECTOR ==
-#define ESP_DRD_USE_SPIFFS true
-#include <ESP_DoubleResetDetector.h>
-#define DRD_TIMEOUT 1  // Second-reset must happen within 10 seconds of first reset to be considered a double-reset
-#define DRD_ADDRESS 0  // RTC Memory Address for the DoubleResetDetector to use
-DoubleResetDetector drd(DRD_TIMEOUT, DRD_ADDRESS);
+char wifiManagerAPPassword[] = "NFCReader";
 
 //== SAVING CONFIG ==
 #include <ArduinoJson.h>
@@ -34,10 +27,6 @@ void configModeCallback(WiFiManager* myWiFiManager) {
     Serial.println(WiFi.softAPIP());
 
     // You could indicate on your screen or by an LED you are in config mode here
-
-    // We don't want the next time the boar resets to be considered a double reset
-    // so we remove the flag
-    drd.stop();
 }
 
 bool loadConfig() {
@@ -59,7 +48,7 @@ bool loadConfig() {
     configFile.readBytes(buf.get(), size);
 
     StaticJsonDocument<200> jsonBuffer;
-    DeserializationError error = deserializeJson(jsonBuffer,buf.get());
+    DeserializationError error = deserializeJson(jsonBuffer, buf.get());
     if (error) {
         Serial.println("Failed to parse config file");
         return false;
@@ -69,13 +58,14 @@ bool loadConfig() {
 
 bool saveConfig() {
     StaticJsonDocument<200> jsonBuffer;
+    deserializeJson(jsonBuffer,"{}");
     File configFile = SPIFFS.open("/config1.json", "w");
     if (!configFile) {
         Serial.println("Failed to open config file for writing");
         return false;
     }
 
-    serializeJson(jsonBuffer,configFile);
+    serializeJson(jsonBuffer, configFile);
     return true;
 }
 
@@ -95,20 +85,13 @@ void NetworkManager::Setup() {
     WiFiManager wifiManager;
     wifiManager.setSaveConfigCallback(saveConfigCallback);
 
-    //-- Double-Reset --
-    //if (drd.detectDoubleReset()) {
-    if(false){
-        Serial.println("Double Reset Detected");
+    //wifiManager.setHttpPort(8080);
 
-        wifiManager.startConfigPortal(wifiManagerAPName, wifiManagerAPPassword);
-    } else {
-        Serial.println("No Double Reset Detected");
-
-        // fetches ssid and pass from eeprom and tries to connect
-        // if it does not connect it starts an access point with the specified name wifiManagerAPName
-        // and goes into a blocking loop awaiting configuration
-        wifiManager.autoConnect(wifiManagerAPName, wifiManagerAPPassword);
-    }
+     // fetches ssid and pass from eeprom and tries to connect
+     // if it does not connect it starts an access point with the specified name wifiManagerAPName
+     // and goes into a blocking loop awaiting configuration
+    wifiManager.autoConnect(wifiManagerAPName, wifiManagerAPPassword);
+    
 
     //-- Status --
     Serial.println("WiFi connected");
@@ -119,7 +102,6 @@ void NetworkManager::Setup() {
     if (shouldSaveConfig) {
         saveConfig();
     }
-    drd.stop();
-
-    delay(1000);
+    wifiManager.stopWebPortal();
+    delay(3000);
 }

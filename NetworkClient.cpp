@@ -2,7 +2,6 @@
 
 #include <DNSServer.h>
 
-void dumpInfo(byte *ar, int len);
 
 NetworkClient::NetworkClient(IPAddress ip,unsigned int port) {
     if (WiFi.status() != WL_CONNECTED) {

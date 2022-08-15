@@ -20,7 +20,7 @@
 #define RST_PIN 21
 #define SS_PIN 5
 
-NetworkManager networkManager;
+
 MFRC522Extended mfrc522(SS_PIN, RST_PIN);  // Create MFRC522 instance
 MFRC522::StatusCode status;
 
@@ -38,22 +38,86 @@ void setup() {
   Serial.begin(115200);
   while (!Serial)
     ;
-  networkManager.Setup();
-  SPI.begin();
-
-  findServerIP();
-  if (Writer) {
-    startWebServer();
+  if (!SPIFFS.begin()) {
+    Serial.println("Mounting spiffs failed");
+    return;
   }
-
+  if (!getConfiguration()) {
+    Serial.println("Config failed");
+    //TODO exception schmeißen
+  }
+  SPI.begin();
   mfrc522.PCD_Init();
   Serial.println(F("Setup ready"));
 }
 
-void findServerIP() {
+boolean getConfiguration() {
+  File file = SPIFFS.open("/config.json", "r");
+  if (!file) {
+    Serial.println("Failed to read file");
+    return false;
+  }
+
+  StaticJsonDocument<512> doc;
+  DeserializationError error = deserializeJson(doc, file);
+  if (error) {
+    Serial.println(F("Failed to read file, using default configuration"));
+    Serial.println(error.c_str());
+    file.close();
+    return false;
+  }
+
+  if (doc.containsKey("Wifi") && doc["Wifi"].containsKey("ssid") && doc["Wifi"].containsKey("pw")
+      && !String().equals(doc["Wifi"]["ssid"].as<String>()) && !String().equals(doc["Wifi"]["pw"].as<String>())) {
+    Serial.println("Using wifi settings from config file");
+    String ssid = doc["Wifi"]["ssid"].as<String>();
+    String pw = doc["Wifi"]["pw"].as<String>();
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid.c_str(), pw.c_str());
+  } else {
+    Serial.println("Start networkmanager");
+    NetworkManager networkManager;
+    networkManager.Setup();
+  }
+
+  if (doc.containsKey("Doorserver") && doc["Doorserver"].containsKey("ip") && doc["Doorserver"].containsKey("port")
+      && !String().equals(doc["Doorserver"]["ip"].as<String>()) && !String().equals(doc["Doorserver"]["port"].as<String>())) {
+    //use config data from user
+    Serial.println("Using config file for server config");
+    serverIp = IPAddress();
+    serverIp.fromString(doc["Doorserver"]["ip"].as<String>());
+    serverPort = doc["Doorserver"]["port"].as<unsigned int>();
+    Serial.println("Server address:");
+    Serial.print(serverIp);
+    Serial.print(":");
+    Serial.println(serverPort);
+  } else {
+    //Automatically get ip and port from mdns
+    Serial.println("Get server config with mdns");
+    if (!getServerConfigFromMDns()) {
+      file.close();
+      return false;
+    }
+  }
+
+  Serial.println();
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print('.');
+    delay(100);
+  }
+
+  file.close();
+
+  if (Writer) {
+    return startWebServer();
+  }
+  return true;
+}
+
+boolean getServerConfigFromMDns() {
   if (mdns_init() != ESP_OK) {
     Serial.println("mDNS failed to start");
-    return;
+    return false;
   }
   const char *proto = "tcp";
   const char *service = "homekeypro";
@@ -61,6 +125,7 @@ void findServerIP() {
   int n = MDNS.queryService(service, proto);
   if (n == 0) {
     Serial.println("no services found");
+    return false;
   }
   serverIp = MDNS.IP(0);
   serverPort = MDNS.port(0);
@@ -68,14 +133,10 @@ void findServerIP() {
   Serial.print(serverIp);
   Serial.print(":");
   Serial.println(serverPort);
+  return true;
 }
 
-void startWebServer() {
-  // Initialize SPIFFS
-  if (!SPIFFS.begin(true)) {
-    Serial.println("An Error has occurred while mounting SPIFFS");
-    return;
-  }
+boolean startWebServer() {
 
   // Route for root / web page
   server.on("/api/chips", HTTP_GET, [](AsyncWebServerRequest * request) {
@@ -91,8 +152,9 @@ void startWebServer() {
     request->send(response);
     delete[] devicesJson;
   });
-  
+
   server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
+    Serial.println("Delivering default page");
     request->send(SPIFFS, "/index.html", String(), false);
   });
   server.on("/new", HTTP_GET, [](AsyncWebServerRequest * request) {
@@ -113,59 +175,59 @@ void startWebServer() {
 
   server.serveStatic("/fs/", SPIFFS, "/fs/");
 
-  server.onRequestBody([](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-        if (request->url() == "/api/chip") {
-            handleChipApi(request, data);
-        } else {
-            request->send(404);
-            return;
-        }
-    });
+  server.onRequestBody([](AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total) {
+    if (request->url() == "/api/chip") {
+      handleChipApi(request, data);
+    } else {
+      request->send(404);
+      return;
+    }
+  });
 
   Serial.println("Starting server NOW...");
   // Start server
   server.begin();
   if (mdns_init() != ESP_OK) {
     Serial.println("mDNS failed to start");
-    return;
+    return false;
   }
-  if (!MDNS.begin("Home-key-pro")) {
+  if (!MDNS.begin("home-key-pro")) {
     Serial.println("Error starting mDNS");
-    return;
+    return false;
   }
   MDNS.addService("http", "tcp", 80);
+  return true;
 }
 
 void handleChipApi(AsyncWebServerRequest *request, uint8_t *data) {
-    if (request->method() != HTTP_POST && request->method() != HTTP_DELETE) {
-        request->send(405);
-        return;
+  if (request->method() != HTTP_POST && request->method() != HTTP_DELETE) {
+    request->send(405);
+    return;
+  }
+  DynamicJsonDocument jsonBuffer(100);
+  DeserializationError error = deserializeJson(jsonBuffer, (const char *)data);
+  if (request->method() == HTTP_POST) {
+    if (error || !jsonBuffer.containsKey("name")) {
+      request->send(201);
+      return;
     }
+    RegisterResult result = registerDevice(jsonBuffer["name"].as<String>());
+    AsyncResponseStream *response = request->beginResponseStream("application/json");
     DynamicJsonDocument jsonBuffer(100);
-    DeserializationError error = deserializeJson(jsonBuffer, (const char *)data);
-    if (request->method() == HTTP_POST) {
-        if (error || !jsonBuffer.containsKey("name")) {
-            request->send(201);
-            return;
-        }
-        RegisterResult result = registerDevice(jsonBuffer["name"].as<String>());
-        AsyncResponseStream *response = request->beginResponseStream("application/json");
-        DynamicJsonDocument jsonBuffer(100);
-        jsonBuffer["result"] = registerResultToString(result);
-        serializeJson(jsonBuffer,*response);
-        request->send(response);
-    } else if (request->method() == HTTP_DELETE) {
-        
-        if (error || !jsonBuffer.containsKey("uid")) {
-            request->send(201);
-            return;
-        }
-        String hexStringUid = jsonBuffer["uid"].as<String>();
-        byte uid[16];
-        hex2bin(hexStringUid.c_str(), uid);
-        deleteDevice(uid);
-        request->send(200);
+    jsonBuffer["result"] = registerResultToString(result);
+    serializeJson(jsonBuffer, *response);
+    request->send(response);
+  } else if (request->method() == HTTP_DELETE) {
+    if (error || !jsonBuffer.containsKey("uid")) {
+      request->send(201);
+      return;
     }
+    String hexStringUid = jsonBuffer["uid"].as<String>();
+    byte uid[16];
+    hex2bin(hexStringUid.c_str(), uid);
+    deleteDevice(uid);
+    request->send(200);
+  }
 }
 
 void deleteDevice(byte uid[]) {
@@ -234,7 +296,7 @@ RegisterResult registerAndroidDevice(String name) {
     Serial.println("Android Error");
     return RegisterResult_AppNotInstalled;
   }
-  if(android.IsAndroidKnown()){
+  if (android.IsAndroidKnown()) {
     return RegisterResult_AlreadyRegistered;
   }
   if (!android.GetKey(name, presharedKey)) {

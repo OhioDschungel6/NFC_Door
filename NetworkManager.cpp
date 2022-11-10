@@ -84,13 +84,12 @@ void NetworkManager::Setup() {
     // Local intialization. Once its business is done, there is no need to keep it around
     WiFiManager wifiManager;
     wifiManager.setSaveConfigCallback(saveConfigCallback);
-
-    //wifiManager.setHttpPort(8080);
-
+    
      // fetches ssid and pass from eeprom and tries to connect
      // if it does not connect it starts an access point with the specified name wifiManagerAPName
      // and goes into a blocking loop awaiting configuration
     wifiManager.autoConnect(wifiManagerAPName, wifiManagerAPPassword);
+    //wifiManager.startConfigPortal(wifiManagerAPName, wifiManagerAPPassword);
     
 
     //-- Status --
@@ -102,6 +101,6 @@ void NetworkManager::Setup() {
     if (shouldSaveConfig) {
         saveConfig();
     }
-    wifiManager.stopWebPortal();
+    wifiManager.stopConfigPortal();
     delay(3000);
 }

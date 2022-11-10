@@ -330,7 +330,7 @@ boolean Desfire::ChangeKeyNetwork(KeyType keyType, String name, const unsigned c
     message.append(name.length());
     message.appendBuffer((byte*)name.c_str(), name.length());
 
-    client.Send(message.buffer, message.size);
+    client.SendWithHMAC(message.buffer, message.size,presharedKey);
 
     byte originalLength;
     client.Recieve(&originalLength, 1);
@@ -361,7 +361,7 @@ boolean Desfire::ChangeKeyNetwork(KeyType keyType, String name, const unsigned c
     }
     authenticated = false;
 
-    client.Send(message.buffer, 1);
+    client.SendWithHMAC(message.buffer, 1,presharedKey);
 
     if (message.buffer[0] != DesfireStatusCode_OPERATION_OK) {
         dumpInfo(message.buffer, message.size);

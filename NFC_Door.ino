@@ -27,7 +27,7 @@ MFRC522::StatusCode status;
 boolean isPresent = false;
 IPAddress serverIp;
 unsigned int serverPort;
-AsyncWebServer server(80);
+
 
 boolean Reader = false;
 boolean Writer = true;
@@ -73,7 +73,14 @@ boolean getConfiguration() {
     String ssid = doc["Wifi"]["ssid"].as<String>();
     String pw = doc["Wifi"]["pw"].as<String>();
     WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid.c_str(), pw.c_str());
+    wl_status_t wifiStatus = WiFi.begin(ssid.c_str(), pw.c_str());
+    if(WL_CONNECTED != wifiStatus){
+      Serial.println("Error connecting to wifi.");
+      Serial.println(wifiStatus);
+      Serial.println(ssid);
+      Serial.println(pw);
+      return false;      
+    }
   } else {
     Serial.println("Start networkmanager");
     NetworkManager networkManager;
@@ -138,8 +145,9 @@ boolean getServerConfigFromMDns() {
 
 boolean startWebServer() {
 
+  auto server = new AsyncWebServer(80);
   // Route for root / web page
-  server.on("/api/chips", HTTP_GET, [](AsyncWebServerRequest * request) {
+  server->on("/api/chips", HTTP_GET, [](AsyncWebServerRequest * request) {
     AsyncResponseStream *response = request->beginResponseStream("application/json");
     NetworkClient client(serverIp, serverPort);
     byte cmd = 0x6D;
@@ -153,29 +161,29 @@ boolean startWebServer() {
     delete[] devicesJson;
   });
 
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
+  server->on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
     Serial.println("Delivering default page");
     request->send(SPIFFS, "/index.html", String(), false);
   });
-  server.on("/new", HTTP_GET, [](AsyncWebServerRequest * request) {
+  server->on("/new", HTTP_GET, [](AsyncWebServerRequest * request) {
     request->send(SPIFFS, "/index.html", String(), false);
   });
-  server.on("/new/search", HTTP_GET, [](AsyncWebServerRequest * request) {
+  server->on("/new/search", HTTP_GET, [](AsyncWebServerRequest * request) {
     request->send(SPIFFS, "/index.html", String(), false);
   });
-  server.on("/new/success", HTTP_GET, [](AsyncWebServerRequest * request) {
+  server->on("/new/success", HTTP_GET, [](AsyncWebServerRequest * request) {
     request->send(SPIFFS, "/index.html", String(), false);
   });
-  server.on("/new/failure", HTTP_GET, [](AsyncWebServerRequest * request) {
+  server->on("/new/failure", HTTP_GET, [](AsyncWebServerRequest * request) {
     request->send(SPIFFS, "/index.html", String(), false);
   });
-  server.on("/overview", HTTP_GET, [](AsyncWebServerRequest * request) {
+  server->on("/overview", HTTP_GET, [](AsyncWebServerRequest * request) {
     request->send(SPIFFS, "/index.html", String(), false);
   });
 
-  server.serveStatic("/fs/", SPIFFS, "/fs/");
+  server->serveStatic("/fs/", SPIFFS, "/fs/");
 
-  server.onRequestBody([](AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total) {
+  server->onRequestBody([](AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total) {
     if (request->url() == "/api/chip") {
       handleChipApi(request, data);
     } else {
@@ -186,7 +194,7 @@ boolean startWebServer() {
 
   Serial.println("Starting server NOW...");
   // Start server
-  server.begin();
+  server->begin();
   if (mdns_init() != ESP_OK) {
     Serial.println("mDNS failed to start");
     return false;
@@ -234,32 +242,7 @@ void deleteDevice(byte uid[]) {
   NetworkClient client(serverIp, serverPort);
   byte cmd = 0xDD;
   client.Send(&cmd, 1);
-
-  byte ekNonce[16];
-  client.Recieve(ekNonce, 16);
-
-  byte iv[16] = {0};
-  AES32 sharedKeyDecryptor;
-  sharedKeyDecryptor.setKey(presharedKey, 128);
-  sharedKeyDecryptor.setIV(iv);
-
-  byte nonce[17];
-  sharedKeyDecryptor.decryptCBC(16, ekNonce, nonce + 1);
-  dumpInfo(nonce + 1, 16);
-  // Rotate nonce for authentication
-  nonce[0] = nonce[16];
-
-  AES32 sharedKeyEncryptor;
-  sharedKeyEncryptor.setKey(presharedKey, 128);
-  sharedKeyEncryptor.setIV(iv);
-
-  byte msg[32];
-  memcpy(msg, nonce, 16);
-  memcpy(msg + 16, uid, 16);
-
-  byte msgEnc[32];
-  sharedKeyEncryptor.encryptCBC(32, msg, msgEnc);
-  client.Send(msgEnc, 32);
+  client.SendWithHMAC(uid, 16, presharedKey);
 }
 
 RegisterResult registerDevice(String name) {

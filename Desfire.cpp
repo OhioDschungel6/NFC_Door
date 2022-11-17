@@ -323,12 +323,13 @@ boolean Desfire::ChangeKeyNetwork(KeyType keyType, String name, const unsigned c
     byte serverCommand = 0xC4;
 
     Buffer<255> message;
-    message.append(serverCommand);
+    client.Send(&serverCommand, 1);
     message.append(keyType);
     message.appendBuffer(mfrc522->uid.uidByte, 7);
     message.append24(applicationNr);
     message.append(name.length());
     message.appendBuffer((byte*)name.c_str(), name.length());
+    //dumpInfo(message.buffer,message.size)
 
     client.SendWithHMAC(message.buffer, message.size,presharedKey);
 

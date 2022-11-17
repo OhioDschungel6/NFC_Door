@@ -24,12 +24,14 @@ void NetworkClient::Send(byte message[], int size) {
 
 void NetworkClient::SendWithHMAC(byte message[], int size, const unsigned char * presharedKey) {
     // Serial.println("Sending message:");
-    // dumpInfo(message,size);
+    dumpInfo(message,size);
     byte nonce [32];
     Recieve(nonce,32);
+    dumpInfo(nonce,32);
     Buffer<4> sizeBuffer;
     sizeBuffer.append32(size);
     client.write(sizeBuffer.buffer,sizeBuffer.size);
+    dumpInfo(sizeBuffer.buffer,sizeBuffer.size);
     client.write((char *)message, size);
     //HMAC
     byte hmacResult[32];
@@ -42,6 +44,7 @@ void NetworkClient::SendWithHMAC(byte message[], int size, const unsigned char *
     mbedtls_md_hmac_update(&ctx, (const unsigned char *) nonce, 32);
     mbedtls_md_hmac_finish(&ctx, hmacResult);
     mbedtls_md_free(&ctx);
+    dumpInfo(hmacResult,32);
     client.write(hmacResult,32);
     client.flush();
 }

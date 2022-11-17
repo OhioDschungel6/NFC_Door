@@ -231,7 +231,7 @@ void handleChipApi(AsyncWebServerRequest *request, uint8_t *data) {
       return;
     }
     String hexStringUid = jsonBuffer["uid"].as<String>();
-    byte uid[16];
+    byte uid[16] = {0};
     hex2bin(hexStringUid.c_str(), uid);
     deleteDevice(uid);
     request->send(200);

@@ -76,6 +76,14 @@ TODO: Einfügen-Protokoll ändern
 === Reader/Writer ===
 === Server ===
 === Web-Client ===
+Über den Web-Client lassen sich neue Karten und Geräte registrieren und bisher hinterlegte Karten oder Geräte verwalten.
+Auf der Startseite kann man sich entweder links zur Registrierung neuer Schlüssel weiterleiten lassen oder rechts zur Übersicht und Verwaltung der existierenden Geräte.
+
+Bei der Neuregistrierung wird der Nutzer zunächst aufgefordert, einen Namen für das Gerät anzugeben und anschließend das Gerät an den NFC-Reader zu halten.
+Im Erfolgsfall hat man die Möglichkeit, entweder sofort ein weiteres Gerät zu registrieren oder zur Startseite zurückzukehren.
+Im Fehlerfall erhält man eine Fehlernachricht, die soweit möglich die Fehlerursache enthält, und kann die Registrierung entweder wiederholen oder abbrechen.
+
+In der Geräteübersicht werden alle bisher registrierten Geräte aufgelistet und können bei Bedarf gelöscht werden.
 === Android-App ===
 
 == Fazit und Ausblick ==

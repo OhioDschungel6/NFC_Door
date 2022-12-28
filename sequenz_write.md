@@ -1,42 +1,51 @@
 # Seqeuenz Writer (Hardware)
-- Event: Karte aufgelegt:
-    - prüfe MasterKey Typ
-    - -> Server: Authenticate Typ, UID, Masterkey
-    - wenn Authentication nicht erfolgreich:
-        - TODO: check, ob Applications angelegt werden dürfen
-        - wenn nicht erlaubt:
-            - Website: Fehler Karte nicht beschreibbar
-            - return
-    - wenn Authentication erfolgreich:
-        - Wenn Masterkey != AES:
-            - -> Server: ChangeKey AES, UID, MasterKey
-    - -> Server: ist UID bekannt
-    - <- Server: App ID oder 0
-    - wenn App ID != 0:
-        - Select App
-        - -> Server: Authenticate AES, UID, AppId
-        - wenn Authentifizierung erfolgreich:
-            - Kartenname auf Website anzeigen
-        - sonst:
-            - Website: Neue Karte
-            - App ID = 0
-    - sonst:
-        - Website: Neue Karte
-    - Event: Website: Write Key
-        - wenn App ID == 0:
-            - GetApplicationIds
-            - App ID = finde freie Application
-            - CreateApplication: App ID
-        - -> Server: Authenticate AES, UID, AppId
-        - wenn nicht erfolgreich:
-            - Illegal State (kann nicht passieren)
-            - return
-        - -> Server: ChangeKey AES, UID, AppId        
-        - Website: Key geändert
-- Event: Android-Handy aufgelegt:
-    - -> Server: ist UID bekannt
-    - <- Server: Name oder unbekannt
-    - Website aktualisieren (Textfeld für Device-Name: editierbar)
-    - Event: Handy hinzufügen/ändern (Button)
-        - -> Server: AddPhone UID, Länge Name, Name, Länge PK, PK
-        - <- Server: erfolgreich ja/nein
+- Event: Registriere Device:
+    - prüfe Gerät-Art:
+        - Fall 1: Desfire-Karte:
+            - -> Karte: Key-Settings abfragen
+            - <- Karte: Key-Settings
+            - Server-Writer-Karte: Authenticate Typ, UID, Masterkey
+            - wenn Authentication nicht erfolgreich (wir kennen Master-Key nicht):
+                - check, ob Applications angelegt werden dürfen
+                - wenn nicht erlaubt:
+                    - Website: Fehler Karte nicht beschreibbar
+                    - return
+            - wenn Authentication erfolgreich:
+                - Wenn Masterkey Default-Key (neue Karte):
+                    - Server-Writer-Karte: ChangeKey AES, UID, MasterKey
+            - -> Server: App ID zur Karten-UID abfragen
+            - <- Server: App ID oder 0
+            - wenn App ID != 0 (App wurde bereits angelegt):
+                - Select App
+                - Server-Writer-Karte: Authenticate AES, UID, AppId
+                - wenn Authentifizierung erfolgreich:
+                    - -> Website: Karte bereits registriert
+                - sonst (Fall darf nicht auftreten):
+                    - -> Website: Fehler
+            - sonst:
+                - wenn App ID == 0:
+                    - GetApplicationIds
+                    - App ID = finde freie Application
+                    - CreateApplication: App ID
+                - Server-Writer-Karte: Authenticate AES, UID, AppId
+                - wenn Authentifizierung erfolgreich:
+                    - Server-Writer-Karte: ChangeKey AES, UID, AppId        
+                    - -> Website: Karte erfolgreich registriert
+                - sonst (Fall darf nicht auftreten):
+                    - -> Website: Fehler
+        - Fall 2: Android-Gerät:
+            - -> Handy: Anwendung auswählen
+            - <- Handy: Anwendung ausgewählt oder unbekannte Anwendung
+            - wenn Anwendung ausgewählt:
+                - -> Server: ist UID bekannt
+                - <- Server: Name oder unbekannt
+                - wenn Name:
+                    - -> Website: Gerät bereits registriert
+                - sonst:
+                    - -> Handy: öffentlichen Schlüssel abfragen
+                    - <- Handy: öffentlicher Schlüssel
+                    - -> Server: RegisterAndroid UID, Key
+                    - <- Server: erfolgreich registriert
+                    - -> Website: Gerät registriert
+            - sonst:
+                - -> Website: Fehler App nicht installiert

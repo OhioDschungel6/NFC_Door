@@ -1,15 +1,17 @@
 # Seqeuenz Reader (Hardware)
 - Event: Karte aufgelegt:
     - -> Server: ist UID bekannt
-    - <- Server: App ID oder 0
-    - wenn ID 0:
-        - return
-    - -> Server: Authenticate AES, UID, AppId
+    - <- Server: App ID 
+    - Server-Reader-Karte: Authenticate AES, UID, AppId
     - wenn erfolgreich:
         - Tür öffnen
 - Event: Handy aufgelegt
+    - -> Handy: Anwendung auswählen
+    - <- Handy: Anwendung ausgewählt
     - -> Server: VerifyAndroid UID
     - <- Server: "zufällige Daten"
+    - -> Handy: "zufällige Daten"
+    - <- Handy: Länge, signiert("zufällige Daten")
     - -> Server: Länge, signiert("zufällige Daten")
     - wenn erfolgreich:
         - Tür öffnen

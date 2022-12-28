@@ -97,11 +97,11 @@ boolean Desfire::_authenticateNetwork(KeyType keyType, int keyNr, byte serverCom
 }
 
 boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
-    _authenticateNetwork(keyType, keyNr, 0xAA);
+    return _authenticateNetwork(keyType, keyNr, 0xAA);
 }
 
 boolean Desfire::OpenDoor(KeyType keyType, int keyNr) {
-    _authenticateNetwork(keyType, keyNr, 0x0D);
+    return _authenticateNetwork(keyType, keyNr, 0x0D);
 }
 
 boolean Desfire::SelectApplication(uint32_t appId) {

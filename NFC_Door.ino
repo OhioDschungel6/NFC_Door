@@ -238,11 +238,14 @@ void handleChipApi(AsyncWebServerRequest *request, uint8_t *data) {
   }
 }
 
-void deleteDevice(byte uid[]) {
+boolean deleteDevice(byte uid[]) {
   NetworkClient client(serverIp, serverPort);
   byte cmd = 0xDD;
   client.Send(&cmd, 1);
   client.SendWithHMAC(uid, 16, presharedKey);
+  byte serverResponse;
+  client.Receive(&serverResponse, 1);
+  return serverResponse == 0;
 }
 
 RegisterResult registerDevice(String name) {

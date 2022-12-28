@@ -381,8 +381,15 @@ boolean Desfire::ChangeKeyNetwork(KeyType keyType, String name, const unsigned c
         Serial.println("Key change failed");
         return false;
     }
-    Serial.println("Change key succesful");
-    return true;
+    byte serverStatus;
+    client.Recieve(&serverStatus, 1);
+    if (serverStatus == 0) {
+        Serial.println("Change key succesful");
+        return true;
+    } else {
+        Serial.println("Key change failed");
+        return false;
+    }
 }
 
 int Desfire::GetAppIds(uint32_t appIds[], int maxLength) {

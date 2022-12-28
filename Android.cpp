@@ -99,9 +99,11 @@ boolean Android::GetKey(String name, const unsigned char presharedKey[16]){
     sendBuffer.append(responseLength);
     sendBuffer.appendBuffer(response,responseLength);
     client.SendWithHMAC(sendBuffer.buffer, sendBuffer.size,presharedKey);
-    
+
+    byte serverResponse;
+    client.Recieve(&serverResponse, 1);
     Serial.println("Get Key end");
-    return true;
+    return serverResponse == 0;
 }
 
 boolean Android::CheckIsAvailable(){

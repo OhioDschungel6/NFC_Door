@@ -58,6 +58,12 @@ boolean Android::Verify(){
     client.Send(&responseLength,1);
     client.Send(response,responseLength);
     dumpInfo(response,responseLength);
+    byte serverResponse;
+    client.Recieve(&serverResponse, 1);
+    if (serverResponse != 0x00) {
+        Serial.println("Verify failed");
+        return false;
+    }
     Serial.println("Verify end");
     return true;
 }

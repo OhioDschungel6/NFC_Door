@@ -83,6 +83,11 @@ boolean Desfire::_authenticateNetwork(KeyType keyType, int keyNr, byte serverCom
     } else {
         if (response[0] == DesfireStatusCode_OPERATION_OK) {  // reply from PICC should start with 0x00
             client.Send(&response[1], blockSize);             // ek(RndA')
+            byte serverStatus;
+            client.Recieve(&serverStatus, 1);
+            if (serverStatus != 0) {
+                return false;
+            }
             authType = keyType;
             authenticated = true;
             authkeyNr = keyNr;

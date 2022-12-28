@@ -13,17 +13,18 @@ enum KeyType : byte {
 };
 
 struct KeySettings {
-  byte keyCount;
-  KeyType keyType;
-  byte secSettings;
+    byte keyCount;
+    KeyType keyType;
+    byte secSettings;
 };
 
 class Desfire {
    public:
-    Desfire(MFRC522Extended* mfrc522,IPAddress ip,unsigned int port);
+    Desfire(MFRC522Extended* mfrc522, IPAddress ip, unsigned int port);
     boolean AuthenticateNetwork(KeyType keyType, int keyNr);
+    boolean Desfire::OpenDoor(KeyType keyType, int keyNr);
     boolean ChangeKey(byte key[], KeyType keyType, int keyNr);
-    boolean ChangeKeyNetwork(KeyType keyType,String name, const unsigned char presharedKey[]);
+    boolean ChangeKeyNetwork(KeyType keyType, String name, const unsigned char presharedKey[]);
     boolean SelectApplication(uint32_t appId);
     boolean CreateApplication(uint32_t appId, byte keyCount, KeyType keyType);
     boolean DeleteApplication(uint32_t appId);
@@ -46,7 +47,6 @@ class Desfire {
     AES32 aes = AES32();
     boolean EncryptDataframe(byte dataframe[], byte encDataframe[], int length);
 };
-
 
 enum DesfireStatusCode : byte {
     DesfireStatusCode_OPERATION_OK = 0x00,          /* successful operation */
@@ -74,13 +74,13 @@ enum DesfireStatusCode : byte {
 };
 
 enum DesfireCommand : byte {
-    DesfireCommand_AUTHENTICATE_LEGACY = 0x1A,   
-    DesfireCommand_AUTHENTICATE = 0xAA, 
-    DesfireCommand_SELECT_APPLICATION = 0x5A, 
-    DesfireCommand_CREATE_APPLICATION = 0xCA, 
+    DesfireCommand_AUTHENTICATE_LEGACY = 0x1A,
+    DesfireCommand_AUTHENTICATE = 0xAA,
+    DesfireCommand_SELECT_APPLICATION = 0x5A,
+    DesfireCommand_CREATE_APPLICATION = 0xCA,
     DesfireCommand_DELETE_APPLICATION = 0xDA,
-    DesfireCommand_FORMAT_CARD = 0xFC,  
+    DesfireCommand_FORMAT_CARD = 0xFC,
     DesfireCommand_CHANGE_KEY = 0xC4,
-    DesfireCommand_GET_APPLICATIONS = 0x6A,  
-    DesfireCommand_GET_KEY_SETTINGS = 0x45,  
+    DesfireCommand_GET_APPLICATIONS = 0x6A,
+    DesfireCommand_GET_KEY_SETTINGS = 0x45,
 };

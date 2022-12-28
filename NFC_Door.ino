@@ -389,7 +389,7 @@ void loop() {
       if (!desfire.SelectApplication(appId)) {
         return;
       }
-      if (!desfire.AuthenticateNetwork(KEYTYPE_AES, 0)) {
+      if (!desfire.OpenDoor(KEYTYPE_AES, 0)) {
         return;
       }
     } else {

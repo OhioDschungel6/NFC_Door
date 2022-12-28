@@ -13,7 +13,7 @@ Desfire::Desfire(MFRC522Extended* mfrc522, IPAddress ip, unsigned int port) {
     this->port = port;
 }
 
-boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
+boolean Desfire::_authenticateNetwork(KeyType keyType, int keyNr, byte serverCommand) {
     DesfireCommand cmd;
     switch (keyType) {
         case KEYTYPE_2K3DES:
@@ -32,7 +32,6 @@ boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
     byte response[64] = {0};
     byte responseLength = 64;
 
-    byte serverCommand = 0xAA;
     byte blockSize = getAuthBlockSize(keyType);
 
     // Send Auth command
@@ -95,6 +94,14 @@ boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
         }
     }
     return false;
+}
+
+boolean Desfire::AuthenticateNetwork(KeyType keyType, int keyNr) {
+    _authenticateNetwork(keyType, keyNr, 0xAA);
+}
+
+boolean Desfire::OpenDoor(KeyType keyType, int keyNr) {
+    _authenticateNetwork(keyType, keyNr, 0x0D);
 }
 
 boolean Desfire::SelectApplication(uint32_t appId) {
@@ -329,9 +336,9 @@ boolean Desfire::ChangeKeyNetwork(KeyType keyType, String name, const unsigned c
     message.append24(applicationNr);
     message.append(name.length());
     message.appendBuffer((byte*)name.c_str(), name.length());
-    //dumpInfo(message.buffer,message.size)
+    // dumpInfo(message.buffer,message.size)
 
-    client.SendWithHMAC(message.buffer, message.size,presharedKey);
+    client.SendWithHMAC(message.buffer, message.size, presharedKey);
 
     byte originalLength;
     client.Recieve(&originalLength, 1);
@@ -362,7 +369,7 @@ boolean Desfire::ChangeKeyNetwork(KeyType keyType, String name, const unsigned c
     }
     authenticated = false;
 
-    client.SendWithHMAC(message.buffer, 1,presharedKey);
+    client.SendWithHMAC(message.buffer, 1, presharedKey);
 
     if (message.buffer[0] != DesfireStatusCode_OPERATION_OK) {
         dumpInfo(message.buffer, message.size);

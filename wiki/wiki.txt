@@ -1,13 +1,14 @@
-In diesem HSP entwickeln wir ein Türschloss, welches mithilfe von DESfire-Chipkarten sowie von Android-Geräten per [https://de.wikipedia.org/wiki/Near_Field_Communication NFC] geöffnet werden kann. Um verschiedene Verschlüsselungsverfahren auszuprobieren, kommt bei DESfire-Karten ein Challenge-Reponse-Verfahren mittels [https://de.wikipedia.org/wiki/Advanced_Encryption_Standard AES] zum Einsatz. Bei Android-Geräten wird dagegen ein Public-Key-Signaturverfahren ([https://de.wikipedia.org/wiki/Elliptic_Curve_DSA ECDSA]) verwendet. Zum Öffnen des Schlosses wird die Karte bzw. das Android-Gerät an ein NFC-Lesegerät, welches mit einem ESP32-Mikrocontroller verbunden ist, gehalten (Reader). Ein Server im gleichen Wifi-Netz wie der Reader entscheidet, ob das vorgehaltener Gerät zulässig ist, und öffnet die Tür, falls dies der Fall ist. Hierbei gewährleisten wir, dass ein sicheres Öffnen möglich ist, selbst wenn ein potentieller Angreifer den Netzwerkverkehr mitlesen und/oder manipulieren kann. Registriert werden können Karten/Geräte über einen dedizierten NFC-Writer, welcher ein Webfrontend zu Verfügung stellt. Die Kommunikation zwischen Writer und Server wird dabei gesondert gesichert. Wir verwenden ein NFC-Lesegerät, welches von Haus aus nur die Kommunikation mit (älteren) Ultralight-C-Karten unterstützt. Um die Kommunikation mit DESfire-Karten zu ermöglichen, müssen wir kleine Modifikationen an der Hardware vornehmen sowie das DESfire-Kommunkationsprotokoll zum Teil selbst implementieren. Dafür erweitern wir die Library [https://github.com/miguelbalboa/rfid MFRC522] von GitHub-Nutzer miguelbalboa.
+In diesem HSP entwickeln wir ein Türschloss, welches mit möglichst günstiger Hardware ein sicheres Öffnen der Wohnungstür ermöglicht. Das Öffnen erfolgt mithilfe von DESfire-Chipkarten sowie von Android-Geräten per [https://de.wikipedia.org/wiki/Near_Field_Communication NFC]. Um verschiedene Verschlüsselungsverfahren auszuprobieren, kommt bei DESfire-Karten ein Challenge-Reponse-Verfahren mittels [https://de.wikipedia.org/wiki/Advanced_Encryption_Standard AES] zum Einsatz. Bei Android-Geräten wird dagegen ein Public-Key-Signaturverfahren ([https://de.wikipedia.org/wiki/Elliptic_Curve_DSA ECDSA]) verwendet. In der ersten Version wurde auch das Öffnen mit Ultralight-C Karten implementiert. Aus Sicherheitsgründen wurde das aber wieder verworfen (siehe TODO link). Zum Öffnen des Schlosses wird die Karte bzw. das Android-Gerät an ein NFC-Lesegerät (Reader) gehalten, welches mit einem ESP32-Mikrocontroller verbunden ist. Ein Server im selben Wi-Fi-Netz wie der Reader entscheidet, ob das vorgehaltene Gerät zulässig ist, und öffnet in diesem Fall die Tür. Hierbei gewährleisten wir, dass ein sicheres Öffnen möglich ist, selbst wenn ein potentieller Angreifer den Netzwerkverkehr mitlesen und/oder manipulieren kann. Karten/Geräte können über einen dedizierten NFC-Writer registriert werden, welcher ein Webfrontend zu Verfügung stellt und Geräte am Server hinzufügt bzw. wieder löscht. Die Kommunikation zwischen Writer und Server wird dabei gesondert gesichert. Wir verwenden ein NFC-Lesegerät, welches von Haus aus nur die Kommunikation mit (älteren) Ultralight-C-Karten unterstützt. Um die Kommunikation mit DESfire-Karten zu ermöglichen, müssen wir Modifikationen an der Hardware vornehmen sowie das DESfire-Kommunkationsprotokoll zum Teil selbst implementieren. Dafür erweitern wir die Library [https://github.com/miguelbalboa/rfid MFRC522] von GitHub-Nutzer miguelbalboa.
 
 == Einführung und Architektur ==
-Kommerziell erhältliche Türschlösser mit NFC-Authentfizierung sind teuer. In diesem HSP entwickeln wir ein System basierend auf möglichst günstiger Hardware, ohne dass in Sachen Sicherheit Einbußen gemacht werden müssen. Konkret soll der Nutzer mit einem Android-Gerät und einer entsprechenden App oder mit einer DESFire-NFC-Karte das Türschloss sicher öffnen können. Android-Geräte und NFC-Karten werden im Folgenden als ''Geräte'' bezeichnet.
+Kommerziell erhältliche Türschlösser mit NFC-Authentifizierung sind teuer. In diesem HSP entwickeln wir ein System basierend auf möglichst günstiger Hardware, ohne dass in Sachen Sicherheit Einbußen gemacht werden müssen. Konkret soll der Nutzer mit einem Android-Gerät und einer entsprechenden App oder mit einer DESFire-NFC-Karte das Türschloss sicher öffnen können. Android-Geräte und NFC-Karten werden im Folgenden als ''Geräte'' bezeichnet.
 
-Das entwickelte System besteht aus drei Komponenten:
+Das entwickelte System besteht aus vier Komponenten:
 * Der '''Server''' ist ein Raspberry Pi, welcher einen TCP-Server anbietet und Geräte-Schlüssel in einer Datenbank speichert. Bei ihm müssen sich Geräte zum Öffnen der Tür authentifizieren und er ist es auch, der das Schloss letztendlich öffnet.
-* Der '''Reader''' ist außen am Türschloss angebracht und dient als von außen zugängliche Schnittstelle, über die Geräte durch Vorhalten das Schloss öffnen können. Hardwareseitig besteht er aus einem ESP32-Mikrocontroller sowie einem RC522-RFID-Modul.
-* Mit dem '''Writer''' kann der Nutzer seine registrierten Geräte verwalten. Er stellt einen Web-Server zur Verfügung, über den Nutzer registrierte Geräte hinzufügen, anzeigen und löschen kann. Zum Registrieren eines Gerätes muss dieses per NFC mit dem Writer kommunizieren. Daher besteht der Writer genau wie der Reader neben einem ESP32-Mikrocontroller auch aus einem RC522-RFID-Modul.
-Zusätzlich zu diesen drei Komponenten wird ein Wifi-Netzwerk benötigt, über das Reader und Writer mit dem Server kommunizieren können. Außerdem wird für Authentifzieren von Android-Geräte eine von uns entwickelte App auf dem Gerät benötigt.
+* Der '''Reader''' ist außen am Türschloss angebracht und dient als von dort zugängliche Schnittstelle, über die Geräte durch Vorhalten das Schloss öffnen können. Hardwareseitig besteht er aus einem ESP32-Mikrocontroller sowie einem RC522-RFID-Modul.
+* Mit dem '''Writer''' kann der Nutzer seine registrierten Geräte verwalten. Er stellt einen Web-Server zur Verfügung, über den Nutzer registrierte Geräte hinzufügen, anzeigen und löschen können. Zum Registrieren eines Gerätes muss dieses per NFC mit dem Writer kommunizieren. Daher besteht der Writer genau wie der Reader neben einem ESP32-Mikrocontroller auch aus einem RC522-RFID-Modul.
+* Das '''Schloss''' muss über ein Signal auf den GPIO-Pins des Servers geöffnet werden können. Hierbei gibt es zwei Möglichkeiten. Bei der ersten muss das Schloss selbst das Steuern mit einem Signal unterstützen (wie beim gebauten Demonstrator (TODO link zu Abschnitt)). Bei der zweiten wird der bei Haustüren meist existierende [https://de.wikipedia.org/wiki/T%C3%BCr%C3%B6ffner Türöffner] genutzt. Der Vorteil dieser Variante ist, dass der normale Haustürschlüssel weiter normal genutzt werden kann und keine weiteren Modifikationen nötig sind.
+Zusätzlich zu diesen vier Komponenten wird ein Wi-Fi-Netzwerk benötigt, über das Reader und Writer mit dem Server kommunizieren können. Außerdem wird für Authentifizieren von Android-Geräte eine von uns entwickelte App auf dem Gerät benötigt.
 
 == Einrichtung und Anwendung ==
 == Sicherheitskonzept ==
@@ -19,14 +20,14 @@ Wir nehmen an, dass ein Gerät bereits registriert wurde und der entsprechende S
 ==== DESFire-Karten ====
 MIFARE-DESFire-Karten beherrschen nativ die Verschlüsselung mittels DES (in den Varianten 1DES, 2DES, 3DES) und AES-128. Die Karten unterstützen zur Authentifizierung ein dreistufiges Challenge-Response-Verfahren, bei dem sich Karte und Kartenleser bzw. Server gegenseitig vom Besitz desselben (symmetrischen) Schlüssels überzeugen können, ohne dass ein potentieller Angreifer Zugriff auf diesen erlangen kann. Das Verfahren wird sowohl mit DES als auch mit AES angeboten. Wir nutzen die AES-Variante, um DESFire-Karten zu authentifizieren. Das Verfahren läuft mit AES wie folgt ab:
 
-Karte und Server verwenden den gleichen Schlüssel. Die Ver- und Entschlüsselung erfolgt im CBC-Modus. Der ''Initialization Vector'' (IV) ist sowohl karten- als auch serverseitig zu Beginn null. Der Wert des IV nach jeder Ver/-Entschlüsselung wird als neuer Start-IV für die nächste Ver-/Entschlüsselung (karten- bzw. serverseitig) verwendet.
+Karte und Server verwenden den gleichen Schlüssel. Die Ver- und Entschlüsselung erfolgt im CBC-Modus. Der ''Initialization Vector'' (IV) ist sowohl karten- als auch serverseitig zu Beginn ''null''. Der Wert des IV nach jeder Ver/-Entschlüsselung wird als neuer Start-IV für die nächste Ver-/Entschlüsselung (karten- bzw. serverseitig) verwendet.
 # Die Karte generiert einen zufälligen, 16-Byte langen Byte-String <code>RndB = RndB[0] || RndB[1] || ... || RndB[15]</code>, verschlüsselt diesen mit dem gemeinsamen Schlüssel und schickt den verschlüsselten String <code>enc(RndB)</code> an den Server.
 # Der Server entschlüsselt <code>enc(RndB)</code> zu <code>RndB</code>. Er bestimmt <code>RndB' = RndB[1] || RndB[2] || ... || RndB[15] || RndB[0]</code> (Rotation um ein Byte nach links). Anschließend generiert er den zufälligen, 16-Byte langen Byte-String <code>RndA</code> und schickt <code>enc(RndA || RndB')</code> an die Karte.
 # Die Karte entschlüsselt <code>enc(RndA || RndB')</code> zu <code>RndA</code> und <code>RndB'</code>. Sie rotiert <code>RndB'</code> ein Byte nach rechts und vergleicht es mit <code>RndB</code>. Bei Nicht-Übereinstimmung ist die Authentifizierung fehlgeschlagen. Bei Übereinstimmung rotiert sie <code>RndA</code> ein Byte nach links (→<code>RndA'</code>) und schickt <code>enc(RndA')</code> an den Server.
 # Der Server entschlüsselt <code>enc(RndA')</code> zu <code>RndA'</code>. Er rotiert <code>RndA'</code> ein Byte nach rechts und vergleicht es mit <code>RndA</code>. Bei Übereinstimmung war die Authentifizierung erfolgreich.
 Das Verfahren verläuft bei der Verwendung von DES analog. Allerdings sind <code>RndA</code> und <code>RndB</code> nur 8 Byte lang, wenn 1DES oder 2DES verwendet werden. Bei 3DES sind es wie bei AES 16 Byte.
 
-Unter Annahme, dass AES sicher ist, gibt es keinen erkennbaren Zusammenhang zwischen <code>enc(RndA)</code> und <code>enc(RndA')</code>. Daher kann die Karte <code>enc(RndA')</code> nur bestimmen, wenn sie <code>enc(RndA)</code> tatsächlich entschlüsseln konnte, und muss somit im Besitz des Schlüssels sein. Das gleiche gilt analog auch für den Server und <code>RndB</code>. Auf diese Weise können sich Karte und Server gegenseitig von dem Besitz des gemeinsamen Schlüssels überzeugen. Ein Angreifer kann jedoch die Nachrichten nicht entschlüsseln und somit <code>enc(RndA')</code> und <code>enc(RndB')</code> nicht ermitteln, vorausgesetzt, dass <code>RndA</code> und <code>RndB</code> mithilfe eines guten Zufallszahlengenerators erzeugt wurden.
+Unter Annahme, dass AES sicher ist, gibt es keinen erkennbaren Zusammenhang zwischen <code>enc(RndA)</code> und <code>enc(RndA')</code>. Daher kann die Karte <code>enc(RndA')</code> nur bestimmen, wenn sie <code>enc(RndA)</code> tatsächlich entschlüsseln konnte, und muss somit im Besitz des Schlüssels sein. Das gleiche gilt analog auch für den Server und <code>RndB</code>. Auf diese Weise können sich Karte und Server gegenseitig von dem Besitz des gemeinsamen Schlüssels überzeugen. Ein Angreifer kann jedoch die Nachrichten nicht entschlüsseln und somit <code>enc(RndA')</code> und <code>enc(RndB')</code> nicht ermitteln, vorausgesetzt, dass <code>RndA</code> und <code>RndB</code> mithilfe eines guten Zufallszahlengenerators erzeugt wurden. Außerdem werden durch die bei jeder Authentifikation neu gewählten Zufallszahlen [https://de.wikipedia.org/wiki/Replay-Angriff Replay-Angriffe] verhindert.
 
 ==== Android-Geräte ====
 Selbstverständlich wäre es möglich gewesen, den obigen Challenge-Response-Ansatz auch für Android-Geräte zu verwenden. Allerdings ist eines unserer Ziele in diesem HSP, praktische Erfahrungen mit verschiedenen kryptographischen Verfahren zu machen. Daher implementieren wir stattdessen einen anderen Ansatz, basierend auf einem Public-Key-Signaturverfahren, bei dem das Android-Gerät bei der Registrierung ein Schlüsselpaar generiert und dem Server nur den öffentlichen Schlüssel bekanntmacht. Konkret verwenden wir das ECDSA-Verfahren (''Eliptic Curve Digital Signature Algorithm'') mit der Kurve P-256. Diese erreicht mit 128 Bit die gleiche Sicherheit wie das AES-Verfahren für DESFire-Karten.
@@ -36,45 +37,86 @@ Im Vergleich zu Verfahren wie RSA oder DSA, die das Faktorisierungsproblem bzw. 
 Wir gehen davon aus, dass das Android-Gerät bereits registriert wurde und der öffentliche Schlüssel auf dem Server hinterlegt ist.
 Das Authentifizierungsverfahren läuft dann wie folgt ab:
 # Das Android-Gerät sendet eine Authentifizierungsanfrage an den Server.
-# Der Server generiert ein zufällige, 16-Byte-lange Nonce und schickt diese an das Gerät.
+# Der Server generiert eine zufällige, 16-Byte-lange Nonce und schickt diese an das Gerät.
 # Das Gerät hasht die Nonce mittels SHA-256 und signiert den Hash mit ECDSA und seinem privaten Schlüssel. Die resultierende Signatur schickt er an den Server.
 # Der Server berechnet ebenfalls den Hash der Nonce und verifiziert die Signatur mit dem zugehörigen, öffentlichen Schlüssel. Falls die Signatur valide ist, ist die Authentifizierung erfolgreich.
 
-Public-Key-Signaturverfahren basieren auf der Annahme, dass nur mithilfe des privaten Schlüssels effizient eine gültige Signatur erstellt werden kann und dass es nicht effizient möglich ist, aus dem öffentlichen Schlüssel oder einer Signatur den privaten Schlüssel zu ermitteln. Wenn wir voraussetzen, dass ECDSA mit P-256 sicher ist und das die Nonce mithilfe eines guten Zufallszahlengenerator erzeugt wird, kann also nur das Android-Gerät eine gültige Signatur generieren, da es als einziges über den privaten Schlüssel verfügt. Ein Angreifer, der die Nonce kennt, kann also keine gültige Signatur anfertigen und sich somit authentifizieren. Dass die Nonce jedes Mal zufällig vom Server bestimmt wird, verhindert zudem Replay-Attacken.
+Public-Key-Signaturverfahren basieren auf der Annahme, dass nur mithilfe des privaten Schlüssels effizient eine gültige Signatur erstellt werden kann und dass es nicht effizient möglich ist, aus dem öffentlichen Schlüssel oder einer Signatur den privaten Schlüssel zu ermitteln. Wenn wir voraussetzen, dass ECDSA mit P-256 sicher ist und dass die Nonce mithilfe eines guten Zufallszahlengenerators erzeugt wird, kann also nur das Android-Gerät eine gültige Signatur generieren, da es als einziges über den privaten Schlüssel verfügt. Ein Angreifer, der die Nonce kennt, kann also keine gültige Signatur anfertigen und sich somit authentifizieren. Dass die Nonce jedes Mal zufällig vom Server bestimmt wird, verhindert zudem Replay-Attacken.
 
 Dass die Nonce gehasht wird, hat vor allem Implementierungsgründe. Da die Nonce bereits zufällig ist, hat das Verwenden von SHA256 nach unserem Wissen keine sicherheitsrelevanten Vorteile, wenn man von dem Strecken der 16-Byte-langen Nonce auf 32 Byte absieht.
+Wenn das genutzte Android-Gerät ein sogenanntes [https://de.wikipedia.org/wiki/Trusted_Platform_Module Trusted Plattform Modul] besitzt, wird dieses zur Verwaltung der Schlüssel genutzt, da dies den Zugriff auf den privaten Schlüssel verhindert.
 <!--
 Es folgt eine minimale Einführung in die elliptische-Kurven-Kryptographie:
-Jedes Public-Key-Verfahren basiert auf einer sogenannten ''One-Way-Function'', also einer Funktion, die effizient berechnet werden kann, für dessen Umkehrfunktion jedoch kein effizienter Algorithmus bekannt ist. Beim Diffie-Hellman ist diese One-Way-Function etwa <code>f(k) = g^k mod n</code>, wobei <code>k, g, n</code> ganze Zahlen sind und <code>g</code> eine primitive <code>n</code>-te Einheitswurzel ist. Die Umkehrkehrfunktion, genannt ''diskreter Logarithmus'', ist nach aktuellem Kenntnisstand (auf herkömmlichen Computern) nicht effizient berechenbar. Die grundlegende mathematische Struktur von Diffie-Hellman ist die zyklische Gruppe <code>g^1, g^2, ..., g^(n-1), g^n = 1</code> (jeweils modulo <code>n</code>). Ganz ähnlich verhalten sich Public-Key-Verfahren auf Basis von sogenannten ''elliptischen Kurven''. Eine solche Kurve besteht aus Paaren von Zahlen <code>(x, y)</code>, die Gleichungungen der Form <code>y^2 = x^3 + ax + b</code> über einem bestimmten endlichen Körper lösen. Der verwendete Körper und die Parameter <code>a</code> und <code>b</code> bestimmen die konkrete elliptische Kurve. Wenn man einen imaginären Punkt <code>O</code> als neutrales Element hinzunimmt, lässt sich auf Punkten einer elliptische Kurven eine (additive) Verknüpfung definieren, sodass die Vielfachen <code>1G, 2G, ..., (n - 1)G, nG = O</code> eines sogenannten Basispunktes <code>G</code> (analog zur Einheitswurzel bei Diffie-Hellman) eine zyklische Gruppe bilden. Genau wie bei Diffie-Hellman ist für die Umkehrfunktion von <code>f(k) = kG</code> kein effizienter Algorithmus bekannt, vorausgesetzt, dass die Kurvenparameter sowie der Punkt <code>G</code> gut gewählt werden.
+Jedes Public-Key-Verfahren basiert auf einer sogenannten ''One-Way-Function'', also einer Funktion, die effizient berechnet werden kann, für dessen Umkehrfunktion jedoch kein effizienter Algorithmus bekannt ist. Beim Diffie-Hellman-Verfahren ist diese One-Way-Function etwa <code>f(k) = g^k mod n</code>, wobei <code>k, g, n</code> ganze Zahlen sind und <code>g</code> eine primitive <code>n</code>-te Einheitswurzel ist. Die Umkehrkehrfunktion, genannt ''diskreter Logarithmus'', ist nach aktuellem Kenntnisstand (auf herkömmlichen Computern) nicht effizient berechenbar. Die grundlegende mathematische Struktur von Diffie-Hellman ist die zyklische Gruppe <code>g^1, g^2, ..., g^(n-1), g^n = 1</code> (jeweils modulo <code>n</code>). Ganz ähnlich verhalten sich Public-Key-Verfahren auf Basis von sogenannten ''elliptischen Kurven''. Eine solche Kurve besteht aus Paaren von Zahlen <code>(x, y)</code>, die Gleichungungen der Form <code>y^2 = x^3 + ax + b</code> über einem bestimmten endlichen Körper lösen. Der verwendete Körper und die Parameter <code>a</code> und <code>b</code> bestimmen die konkrete elliptische Kurve. Wenn man einen imaginären Punkt <code>O</code> als neutrales Element hinzunimmt, lässt sich auf Punkten einer elliptische Kurven eine (additive) Verknüpfung definieren, sodass die Vielfachen <code>1G, 2G, ..., (n - 1)G, nG = O</code> eines sogenannten Basispunktes <code>G</code> (analog zur Einheitswurzel bei Diffie-Hellman) eine zyklische Gruppe bilden. Genau wie bei Diffie-Hellman ist für die Umkehrfunktion von <code>f(k) = kG</code> kein effizienter Algorithmus bekannt, vorausgesetzt, dass die Kurvenparameter sowie der Punkt <code>G</code> gut gewählt werden.
 
 -->
 
-=== Registrierung von Geräten ===
-Bevor sich ein Gerät per NFC über den Reader authentifizieren kann, muss es sich zunächst registrieren. Hierbei ist auf zweierlei Dinge zu achten: Kein Angreifer soll ohne Zugriff auf Writer und/oder Server in der Lage sein, ein Gerät zu registieren. Und kein Angreifer soll in der Lage sein, aus den bei der Registrierung übertragenen Daten zwischen Writer und Server den (privaten) Schlüssel des registrierten Geräts zu extrahieren. Da sich die Authentifizierung von DESFire-Karten und von Android-Geräten unterscheidet, werden diese beiden Ziele auf unterschiedliche Art und Weise erreicht.
+==== Ultralight-C-Karten====
+Ultralight-C Karten unterstützen das gleiche Challenge-Response-Protokoll wie DESfire Karten, allerdings nur mit dem veralteten [https://de.wikipedia.org/wiki/Triple_DES 3DES] Verschlüsselungsalgorithmus. Dieser gilt zwar grundsätzlich immernoch als sicher, aber die effektive Schlüssellänge kann durch einen Meet-in-the-middle-Angriff von 168 auf 112 eingeschränkt werden. Das BSI empfiehlt diesen Algorithmus daher in moderneren Systemen nicht mehr <ref>https://www.bsi.bund.de/SharedDocs/Downloads/DE/BSI/Publikationen/TechnischeRichtlinien/TR02102/BSI-TR-02102.pdf?__blob=publicationFile</ref>. Da auch der Preisunterschied zu DESfire-Karten relativ gering ist, haben wir uns aus Sicherheitsgründen entschieden, in späteren Versionen keine Ultralight-C-Karten zu unterstützen.
 
-==== DESFire-Karten ====
-DESFire-Karten können mehrere kryptographische Schlüssel speichern. Schlüssel werden dabei innerhalb von Anwendungen verwaltet. Zusätzlich hat jede Karte noch einen sogenannten Master-Key, welcher bei einer neuen Karte den Wert Null hat. Dieser wird benötigt, um destruktive Änderungen an der Karte vorzunehmen, etwa das Löschen von Anwendungen. Das Anlegen von neuen Anwendungen und Schlüsseln sowie das Authentifizieren mit Schüsseln von bereits bestehenden Anwendung ist dagegen standardmäßig auch ohne Master-Key möglich. Nach dem Erstellen einer neuen Anwendung haben die Schlüssel der Anwendung zunächst ebenfalls den Wert Null, bis sie geändert werden.
+=== Registrierung/Löschen von Geräten ===
+Bevor sich ein Gerät per NFC über den Reader authentifizieren kann, muss es sich zunächst am Writer registrieren. Der Writer leitet den Schlüssel an den Server weiter. Hierbei sind die folgenden Schutzziele zu beachten:
+# '''Integrität/Authenzität:''' Kein Angreifer soll ohne Zugriff auf Writer und/oder Server in der Lage sein, ein Gerät zu registieren oder zu löschen.
+# '''Vertraulichkeit:''' Kein Angreifer soll in der Lage sein, aus den bei der Registrierung übertragenen Daten zwischen Writer und Server den (privaten) Schlüssel des registrierten Geräts zu extrahieren.
 
-Beim Registrieren einer DESFire-Karte legen wir eine neue Anwendung mit einem einzelnen Schlüssel an, der später zum Authentifizierung am Reader verwendet wird. Außerdem ändern wir den Master-Key, falls dieser noch den Standardwert hat. So verhindern wir, dass ein Angreifer via NFC die Schlüssel der Karte ändern oder löschen kann und sie zum Öffnen der Tür unbrauchbar wird. Alle Schlüssel 
+Da für DESFire-Karten symmetrische Schlüssel, für Android-Geräte aber öffentliche Schlüssel verwendet werden, unterscheidet sich der Ablauf, wie Geräte hinzugefügt werden, zwischen DESFire-Karten und Android-Geräten.
+Im folgenden beschreiben wir, wie die Schutzziele Integrität, Authenzität und Vertraulichkeit jeweils umgesetzt sind.
 
-<!--
-DESFire-Karten werden mit einem Master-Key gesichert, der verhindert, dass nicht-berechtigte Nutzer
-Wird eine DESFire-Karte registriert, generiert der Server einen zufälligen AES-Schlüssel. Dieser muss nun der Karte übermittelt 
-Da bei DESFire-Karten symmetrische AES-Schlüssel verwendet werden, muss der Schlüssel bei der Registrierung von einer der beiden Parteien (Writer und Server) generiert werden und der anderen Partei übermittelt werden. Wie im Kapitel [[#Einrichtung und Anwendung]] beschrieben, wird daher bei der Einrichtung ein gemeinsamer Schlüssel auf Server und Writer geschrieben.
--->
-TODO: Einfügen-Protokoll ändern
+==== Integrität/Authenzität ====
+Bei der Einrichtung des Systems wird auf Writer und Server derselbe (symmetrische) Schlüssel hinterlegt: ''Shared-Key''. Dieser Shared-Key dient als Basis für ein Protokoll, mit dem die Integrität und Authenzität von Nachrichten sichergestellt wird. Im Folgenden wird examplarisch der Ablauf dieses Protokolls für eine Nachricht vom Writer an den Server dargestellt:
+# Der Server sendet eine 256-Bit-lange <code>Nonce</code> an den Writer.
+# Der Writer sendet <code>MsgLength || Msg || HMAC(Msg || Nonce)</code> an den Server. <code>Msg</code> enthält je nach Befehl z.B. die Geräte-ID, den Schlüssel etc.
+# Der Server überprüft die HMAC. Bei korrekter HMAC fährt er in der normalen Ausführung der aktuellen Aktion fort. Bei fehlerhafter HMAC bricht er die Ausführung der aktuellen Aktion ab.
+Für die HMAC wird der zwischen Server und Writer geteilte Schlüssel verwendet. Als Hashfunktion wird SHA-256 verwendet.
 
-==== Android-Geräte ====
+Durch die HMAC wird sichergestellt, dass Personen ohne Zugriff auf den Writer nicht beliebige Geräte hinzufügen oder löschen können. Bei der Registrierung von Android-Geräten sendet das Gerät außerdem den öffentlichen Schlüssel des Schlüsselpaars an den Server. Daher ist das Protokoll notwendig, um zu verhindern, dass ein Angreifer einen beliebigen eigens erstellten Schlüssel registrieren zu können. Bei DESFire-Karten wird der Schlüssel dagegen vom Server erstellt. Damit ein Angreifer nicht einen falschen Schlüssel an den Writer schicken kann, sendet der Server den Schlüssel mittels des oben beschriebenen Protokolls an den Writer.
 
-=== Löschen von Geräten ===
+Durch die zufällig generierte Nonce, die Teil der HMAC ist, werden Replay-Attacken verhindert.
 
-== Verwendete Hardware ==
+==== Vertraulichkeit ====
+Da für Android-Geräte ein Public-Key-Verfahren verwendet wird, muss der öffentliche Schlüssel, den der Writer an den Server schickt, nicht geheim gehalten werden und wird daher im Klartext gesendet. Bei DESFire-Karten funktioniert dies nicht, da der Schlüssel vom Server generiert und an den Writer verschickt wird. Nachrichten vom Server an den Writer, die vertrauliche Schlüsselinformationen erhalten, werden daher mittels des Shared-Keys verschlüsselt. Dabei wird AES-CBC mit IV Null verwendet. Die Wahl fiel auf den Betriebsmodus "CBC", um die zu Verfügung stehenden Modi der Krypto-Bibliothek des ESP32-Microcontrollers zu berücksichtigen. Da sämtliche vom Server an den Writer verschickten Schlüssel zufällig generiert und nie mehr als einmal gesendet werden, stellt das mehrfache Verwenden desselben IV kein Sicherheitsproblem dar.
+
+== Verwendete Hardware und Kosten ==
 === NFC-Kartenleser ===
+Der NFC-Kartenleser besteht aus einem [https://de.wikipedia.org/wiki/ESP32 ESP32] mit einem [https://www.nxp.com/docs/en/data-sheet/MFRC522.pdf MFRC522].
+Anders als der Kartenleser wie der [https://www.elechouse.com/product/pn532-nfc-rfid-module-v4/ PN532] ist der MFRC522 nativ nicht zum lesen von Ultralight-C- oder DESfire-Karten geeignet. Da bei diesem Projekt vor allem der Kostenpunkt im Vordergrund stand, fiel die Wahl trotzdem auf diesen.
+Der MFRC522 ist bereits ab 1,10€ pro Stück erhältlich.
+Um diesen benutzen zu können müssen aber zuerst noch Modifikationen an diesem durchgeführt werden, da sonst das elektromagnetische Feld zu schwach ist um Ultralight-C- oder DESfire-Karten zu betreiben.
+Hierzu gibt es einen ausführlichen [http://ham.marsik.org/2017/04/using-cheap-rc522-nfc-reader-to-read.html Blogartikel].
+Zuerst müssen die Induktionsspulen L1 und L2 durch Spulen mit einer Induktivität von 2.2mH ersetzt werden.
+Zusätzlich müssen die beiden Kondensatoren C4 und C5 abgelötet werden.
+Stattdessen wurden Keramik-Kondensatoren mit einer Kapazität von 33pF angelötet.
+Während der PN532 das für DESfire-Karten nötige ISO/IEC 14443-4 Kommunikationsprotokoll auf Hardwareebene unterstützt, musste dieses für den MFRC522 auf Softwarelevel implementiert werden.
+Hierfür existiert bereits eine prototypische, experimentelle Implementierung in https://github.com/miguelbalboa/rfid. Da diese aber noch einige Fehler beinhaltete und auch nur Teile des gesamten Protokolls umfasst, haben wir in unserem Fork der Library auch auf dieser Ebene einiges hinzufügen müssen.
+
+Die Hardware des NFC-Readers und des NFC-Writers ist identisch.
 === Türschloss ===
 === Weitere Hardware ===
+
 == Implementierung ==
 === Reader/Writer ===
+* ISO-14443-4 Protokoll:
+** https://github.com/miguelbalboa/rfid
+** Wait Time Extension
+* Desfire EV1 Protokoll:
+** Basiert auf https://www.codeproject.com/Articles/1096861/DIY-electronic-RFID-Door-Lock-with-Battery-Backup
+** Verbindung mit Server
+** ESP32 Krypto
+* Webserver:
+** ESPAsyncWebServer
+** mDNS
+** Wifi-Manager (?)
+* Config:
+** JSON-Magic
+
 === Server ===
+* Python
+* pycryptodome
+* Deploy-Skript
+* SQLite-Datenbank
+* GPIO
+* Session-Key-Management
+
 === Web-Client ===
 Über den Web-Client lassen sich neue Karten und Geräte registrieren und bisher hinterlegte Karten oder Geräte verwalten.
 Auf der Startseite kann man sich entweder links zur Registrierung neuer Schlüssel weiterleiten lassen oder rechts zur Übersicht und Verwaltung der existierenden Geräte.
@@ -85,5 +127,7 @@ Im Fehlerfall erhält man eine Fehlernachricht, die soweit möglich die Fehlerur
 
 In der Geräteübersicht werden alle bisher registrierten Geräte aufgelistet und können bei Bedarf gelöscht werden.
 === Android-App ===
+* HostApduService
+* KeyStore
 
 == Fazit und Ausblick ==

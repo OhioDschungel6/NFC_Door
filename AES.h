@@ -1,3 +1,4 @@
+#pragma once
 #include <Arduino.h>
 #include <aes/esp_aes.h>
 

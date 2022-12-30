@@ -233,79 +233,6 @@ boolean Desfire::CreateApplication(uint32_t appId, byte keyCount, KeyType keyTyp
     return true;
 }
 
-boolean Desfire::ChangeKey(byte key[], KeyType keyType, int keyNr) {
-    if (!authenticated) {
-        Serial.println("Not authenticated");
-        return false;
-    }
-    int keyLength = getKeyLength(keyType);
-    boolean isSameKey = (keyNr == authkeyNr);
-
-    byte keyVersion = 1;
-    Buffer<40> message;
-
-    message.append(DesfireCommand_CHANGE_KEY);
-    if (applicationNr == 0) {
-        message.append(keyNr | keyType);
-    } else {
-        message.append(keyNr);
-    }
-    byte cryptogramStart = message.size;
-    message.appendBuffer(key, keyLength);
-    if (!isSameKey) {
-        byte oldKey[24] = {0};
-        for (int i = 0; i < keyLength; i++) {
-            message.buffer[i + cryptogramStart] ^= oldKey[i];
-        }
-    }
-    if (keyType == KEYTYPE_AES) {
-        message.append(keyVersion);
-    }
-
-    // Calculate CRC32
-    uint32_t crc32 = ~CRC32::calculate(message.buffer, message.size);
-    message.append32(crc32);
-    if (!isSameKey) {
-        crc32 = ~CRC32::calculate(key, keyLength);
-        message.append32(crc32);
-    }
-    int blockSize = getBlockSize(authType);
-    int lastBlockSize = (message.size - cryptogramStart) % blockSize;
-    if (lastBlockSize != 0) {
-        // set size to next multiple of block size
-        message.pad(blockSize - lastBlockSize);
-    }
-    // Encrypt
-    byte encDataframe[message.size] = {0};
-
-    byte cryptogramSize = message.size - cryptogramStart;
-    if (!EncryptDataframe(&message.buffer[cryptogramStart], encDataframe, cryptogramSize)) {
-        Serial.println("Encryption failed");
-        return false;
-    }
-    message.replace(cryptogramStart, encDataframe, cryptogramSize);
-
-    MFRC522::StatusCode status;
-    byte response[40] = {0};
-    byte responseLength = 40;
-    status = mfrc522->TCL_Transceive(&mfrc522->tag, message.buffer, message.size, response, &responseLength);
-    if (status != MFRC522::STATUS_OK) {
-        Serial.println("Key change failed");
-        Serial.println(MFRC522::GetStatusCodeName(status));
-        return false;
-    }
-    if (isSameKey) {
-        authenticated = false;
-    }
-    if (response[0] != DesfireStatusCode_OPERATION_OK) {
-        dumpInfo(response, responseLength);
-        Serial.println("Key change failed");
-        return false;
-    }
-    Serial.println("Key changed");
-    return true;
-}
-
 uint32_t Desfire::GetAppIdFromNetwork() {
     NetworkClient client(ip, port);
     byte serverCommand = 0x6A;
@@ -436,27 +363,6 @@ int Desfire::GetAppIds(uint32_t appIds[], int maxLength) {
         }
     };
     return ids;
-}
-
-boolean Desfire::EncryptDataframe(byte dataframe[], byte encDataframe[], int length) {
-    if (!authenticated) {
-        Serial.println("Not authenticated");
-        return false;
-    }
-    if (length % getBlockSize(authType) != 0) {
-        Serial.println("Block size error");
-        return false;
-    }
-    if (authType == KEYTYPE_3DES || authType == KEYTYPE_2K3DES) {
-        des.set_size(length);
-        des.tdesCbcEncipher(dataframe, encDataframe);
-        Serial.println("Encrpyted");
-        return true;
-    } else if (authType == KEYTYPE_AES) {
-        aes.encryptCBC(length, dataframe, encDataframe);
-        return true;
-    }
-    return false;
 }
 
 int getKeyLength(KeyType keyType) {

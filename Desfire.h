@@ -1,8 +1,7 @@
 #pragma once
-#include <AES32.h>
-#include <DES.h>
 #include <MFRC522Extended.h>
 
+#include "AES.h"
 #include "NetworkClient.h"
 #include "Utils.h"
 
@@ -44,7 +43,7 @@ class Desfire {
     int authkeyNr;
     KeyType authType;
     DES des = DES();
-    AES32 aes = AES32();
+    AES aes = AES();
     boolean EncryptDataframe(byte dataframe[], byte encDataframe[], int length);
 };
 

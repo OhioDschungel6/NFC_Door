@@ -353,9 +353,9 @@ boolean Desfire::ChangeKeyNetwork(KeyType keyType, String name, const unsigned c
 
     // Recieve doubly encrypted dataframe
     client.Recieve(message.buffer, messageLength);
-    AES32 sharedKeyEncryptor;
+    AES sharedKeyEncryptor;
 
-    sharedKeyEncryptor.setKey(presharedKey, 128);
+    sharedKeyEncryptor.setKey(presharedKey);
     byte iv[16] = {0};
     sharedKeyEncryptor.setIV(iv);
 

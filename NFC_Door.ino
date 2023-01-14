@@ -29,10 +29,10 @@ IPAddress serverIp;
 unsigned int serverPort;
 
 
-boolean Reader = false;
-boolean Writer = true;
+boolean Reader = true;
+boolean Writer = false;
 
-const unsigned char *presharedKey = (const unsigned char *)"secretKey1234567";
+unsigned char presharedKey[16];
 
 void setup() {
   Serial.begin(115200);
@@ -106,12 +106,23 @@ boolean getConfiguration() {
       return false;
     }
   }
+ 
 
   Serial.println();
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print('.');
     delay(100);
   }
+  if(!doc.containsKey("secretkey")){
+    Serial.println("No key found in config file");
+    return false;
+  }
+  String key = doc["secretkey"].as<String>();
+  if(key.length() != 32){
+    Serial.println("Keylength has to be 16 byte");
+    return false;
+  }
+  hex2bin(key.c_str(),presharedKey);
 
   file.close();
 
@@ -238,14 +249,11 @@ void handleChipApi(AsyncWebServerRequest *request, uint8_t *data) {
   }
 }
 
-boolean deleteDevice(byte uid[]) {
+void deleteDevice(byte uid[]) {
   NetworkClient client(serverIp, serverPort);
   byte cmd = 0xDD;
   client.Send(&cmd, 1);
   client.SendWithHMAC(uid, 16, presharedKey);
-  byte serverResponse;
-  client.Receive(&serverResponse, 1);
-  return serverResponse == 0;
 }
 
 RegisterResult registerDevice(String name) {
@@ -392,7 +400,7 @@ void loop() {
       if (!desfire.SelectApplication(appId)) {
         return;
       }
-      if (!desfire.OpenDoor(KEYTYPE_AES, 0)) {
+      if (!desfire.AuthenticateNetwork(KEYTYPE_AES, 0)) {
         return;
       }
     } else {

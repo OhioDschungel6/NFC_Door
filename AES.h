@@ -6,7 +6,7 @@ class AES {
    public:
     AES();
 
-    int setKey(const unsigned char *key, unsigned int keybits);
+    int setKey(const unsigned char *key);
     void setIV(byte *iv);
 
     int encryptCBC(size_t length, const unsigned char *input, unsigned char *output);

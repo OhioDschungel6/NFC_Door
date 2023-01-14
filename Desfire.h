@@ -21,7 +21,7 @@ class Desfire {
    public:
     Desfire(MFRC522Extended* mfrc522, IPAddress ip, unsigned int port);
     boolean AuthenticateNetwork(KeyType keyType, int keyNr);
-    boolean Desfire::OpenDoor(KeyType keyType, int keyNr);
+    boolean OpenDoor(KeyType keyType, int keyNr);
     boolean ChangeKey(byte key[], KeyType keyType, int keyNr);
     boolean ChangeKeyNetwork(KeyType keyType, String name, const unsigned char presharedKey[]);
     boolean SelectApplication(uint32_t appId);
@@ -42,9 +42,8 @@ class Desfire {
     byte sessionKey[24];
     int authkeyNr;
     KeyType authType;
-    DES des = DES();
     AES aes = AES();
-    boolean EncryptDataframe(byte dataframe[], byte encDataframe[], int length);
+    boolean _authenticateNetwork(KeyType keyType, int keyNr, byte serverCommand);
 };
 
 enum DesfireStatusCode : byte {

@@ -1,0 +1,10 @@
+{
+  "Doorserver" : {
+    "ip": "",
+    "port": ""
+  },
+  "Wifi": {
+    "ssid":"",
+    "pw": ""
+  }
+}

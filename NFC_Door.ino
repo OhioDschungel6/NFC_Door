@@ -29,8 +29,8 @@ IPAddress serverIp;
 unsigned int serverPort;
 
 
-boolean Reader = false;
-boolean Writer = true;
+boolean Reader = true;
+boolean Writer = false;
 
 unsigned char presharedKey[16];
 
@@ -73,7 +73,8 @@ boolean getConfiguration() {
     String ssid = doc["Wifi"]["ssid"].as<String>();
     String pw = doc["Wifi"]["pw"].as<String>();
     WiFi.mode(WIFI_STA);
-    wl_status_t wifiStatus = WiFi.begin(ssid.c_str(), pw.c_str());
+    WiFi.begin(ssid.c_str(), pw.c_str());
+    uint8_t wifiStatus= WiFi.waitForConnectResult(10000);
     if(WL_CONNECTED != wifiStatus){
       Serial.println("Error connecting to wifi.");
       Serial.println(wifiStatus);

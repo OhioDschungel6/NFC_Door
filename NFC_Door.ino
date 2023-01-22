@@ -29,8 +29,8 @@ IPAddress serverIp;
 unsigned int serverPort;
 
 
-boolean Reader = true;
-boolean Writer = false;
+boolean Reader = false;
+boolean Writer = true;
 
 unsigned char presharedKey[16];
 
@@ -121,7 +121,7 @@ boolean getConfiguration() {
   if(key.length() != 32){
     Serial.println("Keylength has to be 16 byte");
     return false;
-  }
+  } 
   hex2bin(key.c_str(),presharedKey);
 
   file.close();

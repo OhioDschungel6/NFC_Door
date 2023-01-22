@@ -1,5 +1,5 @@
 {
-  "secretkey": "secretKey1234567",
+  "secretkey": "",
   "Doorserver" : {
     "ip": "",
     "port": ""

@@ -114,22 +114,23 @@ boolean getConfiguration() {
     Serial.print('.');
     delay(100);
   }
-  if(!doc.containsKey("secretkey")){
-    Serial.println("No key found in config file");
-    return false;
-  }
-  String key = doc["secretkey"].as<String>();
-  if(key.length() != 32){
-    Serial.println("Keylength has to be 16 byte");
-    return false;
-  } 
-  hex2bin(key.c_str(),presharedKey);
-
-  file.close();
-
   if (Writer) {
+    if(!doc.containsKey("secretkey")){
+      Serial.println("No key found in config file");
+      file.close();
+      return false;
+    }
+
+    String key = doc["secretkey"].as<String>();
+    if(key.length() != 32){
+      Serial.println("Keylength has to be 16 byte");
+      return false;
+    } 
+    hex2bin(key.c_str(),presharedKey);
+    file.close();
     return startWebServer();
   }
+  file.close();
   return true;
 }
 
@@ -398,10 +399,12 @@ void loop() {
         // Card unknown
         return;
       }
+      
       if (!desfire.SelectApplication(appId)) {
+        Serial.println("Select App failed");
         return;
       }
-      if (!desfire.AuthenticateNetwork(KEYTYPE_AES, 0)) {
+      if (!desfire.OpenDoor(KEYTYPE_AES, 0)) {
         return;
       }
     } else {
